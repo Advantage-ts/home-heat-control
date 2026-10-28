@@ -11,6 +11,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_WATCH_ONLY,
     CONF_AWAY_ENABLED,
     CONF_BOOST_DELTA,
     CONF_MAIN_SENSOR,
@@ -58,7 +59,6 @@ from .const import (
     DEFAULT_VACATION_TEMPERATURE,
     DOMAIN,
 )
-from .helpers import async_discover_rooms
 
 
 def _temperature_sensor_selector() -> selector.EntitySelector:
@@ -132,24 +132,14 @@ class SmartdomeHeatControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         if user_input is not None:
             self._data.update(user_input)
-            self._discovered_rooms = await async_discover_rooms(self.hass)
-
-            for room_id, room_data in self._discovered_rooms.items():
-                if isinstance(room_data, dict):
-                    room_data.setdefault(
-                        CONF_ROOM_AWAY_TEMPERATURE,
-                        DEFAULT_ROOM_AWAY_TEMPERATURE,
-                    )
-                    room_data.setdefault(
-                        CONF_ROOM_EXTRA_THERMOSTATS,
-                        list(DEFAULT_ROOM_EXTRA_THERMOSTATS),
-                    )
-                    room_data.setdefault(
-                        CONF_ROOM_AWAY_ENABLED,
-                        DEFAULT_ROOM_AWAY_ENABLED,
-                    )
-
-            return await self.async_step_rooms()
+            # No area discovery. Start with no rooms and in watch-only mode,
+            # so nothing is controlled until rooms are added on purpose.
+            self._data[CONF_ROOMS] = {}
+            self._data[CONF_WATCH_ONLY] = True
+            return self.async_create_entry(
+                title="Home Heat Control",
+                data=self._data,
+            )
 
         schema = vol.Schema(
             {
@@ -302,8 +292,6 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 return await self.async_step_global()
             if action == "rooms":
                 return await self.async_step_rooms_list()
-            if action == "discover":
-                return await self.async_step_discover()
 
         return self.async_show_form(
             step_id="init",
@@ -311,7 +299,7 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Required("action", default="rooms"): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=["global", "rooms", "discover"],
+                            options=["global", "rooms"],
                             translation_key="action",
                             mode="list",
                         )
@@ -681,26 +669,5 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
         self,
         user_input: dict[str, Any] | None = None,
     ) -> FlowResult:
-        discovered = await async_discover_rooms(self.hass)
-
-        for room_id, room_data in discovered.items():
-            if room_id not in self._rooms:
-                if isinstance(room_data, dict):
-                    room_data.setdefault(
-                        CONF_ROOM_AWAY_TEMPERATURE,
-                        DEFAULT_ROOM_AWAY_TEMPERATURE,
-                    )
-                    room_data.setdefault(
-                        CONF_ROOM_EXTRA_THERMOSTATS,
-                        list(DEFAULT_ROOM_EXTRA_THERMOSTATS),
-                    )
-                    room_data.setdefault(
-                        CONF_ROOM_AWAY_ENABLED,
-                        DEFAULT_ROOM_AWAY_ENABLED,
-                    )
-                self._rooms[room_id] = room_data
-
-        new_data = {**self._entry.data, CONF_ROOMS: self._rooms}
-        self.hass.config_entries.async_update_entry(self._entry, data=new_data)
-
-        return self.async_create_entry(title="", data={})
+        """Room discovery is deliberately disabled in Home Heat Control."""
+        return self.async_abort(reason="discovery_disabled")

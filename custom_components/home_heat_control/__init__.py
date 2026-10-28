@@ -110,7 +110,7 @@ from .const import (
     SERVICE_REMOVE_ROOM,
     SERVICE_UPDATE_CONFIG,
 )
-from .helpers import async_discover_rooms, deep_merge
+from .helpers import deep_merge
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -190,12 +190,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     changed = True
 
         if not changed:
-            _LOGGER.debug("[Smartdome Diagnose] PERSIST_LEARNED: Keine Änderungen, Skip.")
+            _LOGGER.debug("Learned values unchanged, nothing to save")
             return
 
-        _LOGGER.warning(
-            "[Smartdome Diagnose] PERSIST_LEARNED: Merge lernbarer Werte in Config Entry. "
-            "Geänderte Räume: %s",
+        _LOGGER.debug(
+            "Saving learned overshoot values. Rooms changed: %s",
             [rid for rid in learned_rooms if rid in current_rooms],
         )
         hass.config_entries.async_update_entry(entry, data=current)
@@ -282,7 +281,7 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
             [StaticPathConfig("/home_heat_ui", frontend_path, False)]
         )
     else:
-        _LOGGER.error("Frontend-Ordner 'www' nicht gefunden in %s", frontend_path)
+        _LOGGER.error("Panel folder 'www' not found in %s", frontend_path)
         return
 
     frontend.async_register_built_in_panel(
@@ -507,9 +506,8 @@ def _async_register_ws_save_config(hass: HomeAssistant) -> None:
         new_cfg = _normalize_config(dict(msg["config"]))
 
         rooms = new_cfg.get(CONF_ROOMS, {})
-        _LOGGER.warning(
-            "[Smartdome Diagnose] WS_SAVE: Konfiguration wird gespeichert. "
-            "Räume: %s | heating_mode: %s | enabled: %s",
+        _LOGGER.info(
+            "Panel saved configuration. Rooms: %s | heating_mode: %s | enabled: %s",
             {rid: r.get("label", rid) for rid, r in rooms.items()},
             new_cfg.get("heating_mode"),
             new_cfg.get("enabled"),
@@ -536,10 +534,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_update_config(call: ServiceCall) -> None:
         target_entry = _get_single_entry(hass)
         if target_entry is None:
-            _LOGGER.warning("Kein Config Entry für update_config gefunden")
+            _LOGGER.warning("No config entry found for update_config")
             return
 
-        _LOGGER.warning("[Smartdome Diagnose] SERVICE_UPDATE_CONFIG aufgerufen. Patch-Keys: %s", list(call.data.get("config", {}).keys()))
+        _LOGGER.info("update_config called with keys: %s", list(call.data.get("config", {}).keys()))
 
         data = hass.data[DOMAIN][target_entry.entry_id]
         current_cfg = dict(data["config"])
@@ -567,7 +565,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_add_room(call: ServiceCall) -> None:
         target_entry = _get_single_entry(hass)
         if target_entry is None:
-            _LOGGER.warning("Kein Config Entry für add_room gefunden")
+            _LOGGER.warning("No config entry found for add_room")
             return
 
         data = hass.data[DOMAIN][target_entry.entry_id]
@@ -608,7 +606,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_remove_room(call: ServiceCall) -> None:
         target_entry = _get_single_entry(hass)
         if target_entry is None:
-            _LOGGER.warning("Kein Config Entry für remove_room gefunden")
+            _LOGGER.warning("No config entry found for remove_room")
             return
 
         data = hass.data[DOMAIN][target_entry.entry_id]
@@ -631,63 +629,17 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def handle_reload(call: ServiceCall) -> None:
         target_entry = _get_single_entry(hass)
         if target_entry is None:
-            _LOGGER.warning("Kein Config Entry für reload gefunden")
+            _LOGGER.warning("No config entry found for reload")
             return
 
         data = hass.data[DOMAIN][target_entry.entry_id]
         cfg = dict(data["config"])
 
-        discovered_rooms = await async_discover_rooms(hass)
-        existing_rooms = cfg.setdefault(CONF_ROOMS, {})
-
-        for room_id, discovered_room in discovered_rooms.items():
-            if room_id not in existing_rooms:
-                existing_rooms[room_id] = {
-                    **discovered_room,
-                    "away_temperature": discovered_room.get(
-                        "away_temperature",
-                        DEFAULT_ROOM_AWAY_TEMPERATURE,
-                    ),
-                }
-                continue
-
-            existing = existing_rooms[room_id]
-            existing_rooms[room_id] = {
-                "label": existing.get("label", discovered_room.get("label", room_id)),
-                "area_id": existing.get("area_id", discovered_room.get("area_id", "")),
-                "thermostat": existing.get(
-                    "thermostat",
-                    discovered_room.get("thermostat", ""),
-                ),
-                "sensor": existing.get("sensor", discovered_room.get("sensor", "")),
-                "window_sensor": existing.get(
-                    "window_sensor",
-                    discovered_room.get("window_sensor", ""),
-                ),
-                CONF_ROOM_WINDOW_SENSORS: existing.get(
-                    CONF_ROOM_WINDOW_SENSORS,
-                    _normalize_window_sensors(discovered_room),
-                ),
-                "target_day": existing.get(
-                    "target_day",
-                    discovered_room.get("target_day", 21.0),
-                ),
-                "target_night": existing.get(
-                    "target_night",
-                    discovered_room.get("target_night", 18.0),
-                ),
-                "away_temperature": existing.get(
-                    "away_temperature",
-                    discovered_room.get(
-                        "away_temperature",
-                        DEFAULT_ROOM_AWAY_TEMPERATURE,
-                    ),
-                ),
-                "day_start": existing.get("day_start", ""),
-                "night_start": existing.get("night_start", ""),
-                "enabled": existing.get("enabled", True),
-            }
-
+        # Home Heat Control never discovers rooms. Smartdome's reload added
+        # every Home Assistant area with a temperature sensor as an enabled
+        # room at 21 °C and rebuilt existing rooms with only a few fields,
+        # dropping offsets and modes. Reload now just re-applies the stored
+        # configuration. Rooms are only ever added on purpose with add_room.
         cfg = _normalize_config(cfg)
 
         hass.config_entries.async_update_entry(target_entry, data=cfg)

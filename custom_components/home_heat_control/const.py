@@ -224,3 +224,39 @@ DEFAULT_VACATION_ENABLED = False
 DEFAULT_VACATION_TEMPERATURE = 14.0
 DEFAULT_AWAY_ENABLED = False
 DEFAULT_ROOM_AWAY_TEMPERATURE = 17.0
+
+# ---------------------------------------------------------------------------
+# Home Heat Control additions
+# ---------------------------------------------------------------------------
+
+# Watch-only mode: work out every decision but never switch the boiler,
+# valves or air conditioning. Decisions are logged to the decision sensor.
+# Defaults to on, so a fresh install controls nothing until it is turned off.
+CONF_WATCH_ONLY = "watch_only"
+DEFAULT_WATCH_ONLY = True
+
+# Hard ceiling for any room target, whatever the schedule, away or vacation
+# setting says.
+CONF_MAX_ROOM_TARGET = "max_room_target"
+DEFAULT_MAX_ROOM_TARGET = 24.0
+
+# A room may only call the boiler when its thermometer reads inside this range.
+# A reading outside it is treated as a faulty or misplaced sensor.
+ROOM_TEMP_PLAUSIBLE_MIN = 5.0
+ROOM_TEMP_PLAUSIBLE_MAX = 35.0
+
+# Boiler run limit: after this many minutes of continuous demand the boiler is
+# rested for BOILER_REST minutes and a notification is raised. 0 disables it.
+CONF_BOILER_MAX_RUN_MINUTES = "boiler_max_run_minutes"
+DEFAULT_BOILER_MAX_RUN_MINUTES = 240
+CONF_BOILER_REST_MINUTES = "boiler_rest_minutes"
+DEFAULT_BOILER_REST_MINUTES = 20
+
+# Minimum boiler on and off times protect the boiler from short cycling.
+CONF_BOILER_MIN_ON_MINUTES = "boiler_min_on_minutes"
+DEFAULT_BOILER_MIN_ON_MINUTES = 3
+CONF_BOILER_MIN_OFF_MINUTES = "boiler_min_off_minutes"
+DEFAULT_BOILER_MIN_OFF_MINUTES = 3
+
+SIGNAL_DECISIONS_UPDATED = f"{DOMAIN}_decisions_updated"
+DECISION_LOG_SIZE = 40

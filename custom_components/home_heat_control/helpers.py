@@ -232,7 +232,7 @@ def apply_room_config_update(
     entry_data = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if entry_data is None:
         _LOGGER.warning(
-            "Kein Entry-Status für %s, Raumconfig kann nicht gesetzt werden",
+            "No entry data for %s, room setting not saved",
             entry.entry_id,
         )
         return

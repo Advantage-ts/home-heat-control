@@ -288,9 +288,8 @@ class SmartHeatingController:
     def update_config(self, config: dict[str, Any]) -> None:
         """Config aktualisieren."""
         rooms = config.get("rooms", {})
-        _LOGGER.warning(
-            "[Smartdome Diagnose] UPDATE_CONFIG: Controller erhält neue Config. "
-            "Räume: %s | heating_mode: %s | enabled: %s",
+        _LOGGER.debug(
+            "Controller received new configuration. Rooms: %s | heating_mode: %s | enabled: %s",
             {rid: r.get("label", rid) for rid, r in rooms.items()},
             config.get("heating_mode"),
             config.get("enabled"),
@@ -400,9 +399,8 @@ class SmartHeatingController:
         """Gelernte Werte in den Config Entry schreiben."""
         if self._persist_callback is not None:
             rooms = self.config.get("rooms", {})
-            _LOGGER.warning(
-                "[Smartdome Diagnose] PERSIST_LEARNED_VALUES: Erstelle Persist-Task. "
-                "Räume: %s | heating_mode: %s | enabled: %s",
+            _LOGGER.debug(
+                "Saving learned values. Rooms: %s | heating_mode: %s | enabled: %s",
                 {rid: r.get("label", rid) for rid, r in rooms.items()},
                 self.config.get("heating_mode"),
                 self.config.get("enabled"),
@@ -1278,7 +1276,7 @@ class SmartHeatingController:
                 if now_ts - missing_since >= 300:
                     if room_id not in self._room_sensor_fault:
                         _LOGGER.warning(
-                            "Raum %s: Raumsensor seit 5 min ohne Messwert – Heizung gestoppt",
+                            "%s: room thermometer has sent nothing for 5 minutes, heating stopped for this room",
                             room.get("label", room_id),
                         )
                     self._room_sensor_fault.add(room_id)

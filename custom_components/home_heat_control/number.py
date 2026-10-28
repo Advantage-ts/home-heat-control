@@ -99,7 +99,7 @@ class SmartHeatingVacationTemperatureNumber(NumberEntity):
         entry_data = self._get_entry_data()
         if entry_data is None:
             _LOGGER.warning(
-                "Kein Entry-Status für %s gefunden, Zahl kann nicht gesetzt werden",
+                "No entry data for %s, value not saved",
                 self._entry.entry_id,
             )
             return
@@ -118,7 +118,7 @@ class SmartHeatingVacationTemperatureNumber(NumberEntity):
         self._push_state(config)
 
         _LOGGER.info(
-            "Home Heat Control Urlaubstemperatur auf %.1f °C gesetzt",
+            "Vacation temperature set to %.1f °C",
             float(value),
         )
 

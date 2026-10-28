@@ -18,7 +18,7 @@ add_room:
       name: Room ID
       description: Unique room identifier.
       required: false
-      example: kinderzimmer
+      example: office
     label:
       name: Label
       description: Friendly room name.
@@ -28,7 +28,7 @@ add_room:
       name: Area ID
       description: Home Assistant area ID.
       required: false
-      example: kinderzimmer
+      example: office
     thermostat:
       name: Thermostat
       description: Climate entity for the room.
@@ -83,8 +83,8 @@ remove_room:
       name: Room ID
       description: Unique room identifier.
       required: true
-      example: kinderzimmer
+      example: office
 
 reload:
-  name: Reload rooms
-  description: Rediscover rooms and refresh the Home Heat Control configuration.
+  name: Reload configuration
+  description: Re-apply the stored Home Heat Control configuration. It never adds rooms.

@@ -128,7 +128,7 @@ class SmartHeatingBaseSwitch(SwitchEntity):
         entry_data = self._get_entry_data()
         if entry_data is None:
             _LOGGER.warning(
-                "Kein Entry-Status für %s gefunden, Schalter kann nicht gesetzt werden",
+                "No entry data for %s, switch not saved",
                 self._entry.entry_id,
             )
             return
@@ -178,8 +178,8 @@ class SmartHeatingEnableSwitch(SmartHeatingBaseSwitch):
         self._apply_config_update(config)
 
         _LOGGER.info(
-            "Home Heat Control wurde %s",
-            "aktiviert" if enabled else "deaktiviert",
+            "Home Heat Control %s",
+            "enabled" if enabled else "disabled",
         )
 
 
@@ -227,9 +227,9 @@ class SmartHeatingModeSwitch(SmartHeatingBaseSwitch):
         self._apply_config_update(config)
 
         _LOGGER.info(
-            "Home Heat Control Modus %s wurde %s",
+            "Home Heat Control %s %s",
             self._config_key,
-            "aktiviert" if enabled else "deaktiviert",
+            "enabled" if enabled else "disabled",
         )
 
 

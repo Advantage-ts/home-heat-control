@@ -2,18 +2,7 @@ const DOMAIN = "home_heat_control";
 const CONFIG_ENTITY_ID = `${DOMAIN}.config`;
 
 function getUiLanguage() {
-  const lang =
-    document.documentElement.lang ||
-    navigator.language ||
-    navigator.userLanguage ||
-    "en";
-
-  const normalized = String(lang).toLowerCase();
-
-  if (normalized.startsWith("de")) {
-    return "de";
-  }
-
+  // Home Heat Control: the panel is always English.
   return "en";
 }
 
@@ -541,7 +530,6 @@ function initEls() {
     statusBox: document.getElementById("statusBox"),
     saveBtn: document.getElementById("saveBtn"),
     reloadConfigBtn: document.getElementById("reloadConfigBtn"),
-    reloadRoomsBtn: document.getElementById("reloadRoomsBtn"),
     addRoomBtn: document.getElementById("addRoomBtn"),
     applyTimesToRoomsBtn: document.getElementById("applyTimesToRoomsBtn"),
     applyTempsToRoomsBtn: document.getElementById("applyTempsToRoomsBtn"),
@@ -622,7 +610,6 @@ function setStatus(message, type = "warn") {
 function setButtonsDisabled(disabled) {
   els.saveBtn.disabled = disabled;
   els.reloadConfigBtn.disabled = disabled;
-  els.reloadRoomsBtn.disabled = disabled;
   els.addRoomBtn.disabled = disabled;
   els.applyTimesToRoomsBtn.disabled = disabled;
 
@@ -3168,7 +3155,6 @@ function bindScheduleEvents() {
 
 function bindEvents() {
   els.saveBtn.addEventListener("click", saveConfig);
-  els.reloadRoomsBtn.addEventListener("click", reloadRooms);
   els.reloadConfigBtn.addEventListener("click", reloadConfig);
   els.addRoomBtn.addEventListener("click", addRoom);
   els.applyTimesToRoomsBtn.addEventListener(
