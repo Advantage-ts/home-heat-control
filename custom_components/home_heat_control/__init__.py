@@ -214,8 +214,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _async_register_services(hass)
     _push_state(hass, cfg)
 
-    if hass.is_running:
+    async def _start_all() -> None:
         await controller.async_start()
+        await controller.hot_water.async_start()
+
+    if hass.is_running:
+        await _start_all()
     else:
         start_listener = None
 
@@ -223,7 +227,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         def _start_when_ready(event) -> None:
             nonlocal start_listener
             start_listener = None
-            hass.async_create_task(controller.async_start())
+            hass.async_create_task(_start_all())
 
         start_listener = hass.bus.async_listen_once(
             EVENT_HOMEASSISTANT_STARTED,
@@ -664,6 +668,27 @@ def _async_register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({vol.Required("room_id"): str}),
     )
     hass.services.async_register(DOMAIN, SERVICE_RELOAD, handle_reload)
+
+    def _controllers():
+        for key, value in hass.data.get(DOMAIN, {}).items():
+            if not key.startswith("_") and isinstance(value, dict) and DATA_CONTROLLER in value:
+                yield value[DATA_CONTROLLER]
+
+    async def handle_hot_water_boost(call: ServiceCall) -> None:
+        for ctrl in _controllers():
+            ctrl.hot_water.start_boost(call.data.get("minutes"))
+
+    async def handle_hot_water_cancel_boost(call: ServiceCall) -> None:
+        for ctrl in _controllers():
+            ctrl.hot_water.cancel_boost()
+
+    hass.services.async_register(
+        DOMAIN,
+        "hot_water_boost",
+        handle_hot_water_boost,
+        schema=vol.Schema({vol.Optional("minutes"): vol.All(vol.Coerce(float), vol.Range(min=1, max=180))}),
+    )
+    hass.services.async_register(DOMAIN, "hot_water_cancel_boost", handle_hot_water_cancel_boost)
 
     hass.data[DOMAIN]["_services_registered"] = True
 

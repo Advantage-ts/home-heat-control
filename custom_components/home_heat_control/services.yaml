@@ -88,3 +88,22 @@ remove_room:
 reload:
   name: Reload configuration
   description: Re-apply the stored Home Heat Control configuration. It never adds rooms.
+
+hot_water_boost:
+  name: Hot water boost
+  description: Heat the hot water now until the boost target or the time runs out.
+  fields:
+    minutes:
+      name: Minutes
+      description: How long the boost may run. Defaults to the configured boost time.
+      required: false
+      example: 60
+      selector:
+        number:
+          min: 1
+          max: 180
+          unit_of_measurement: min
+
+hot_water_cancel_boost:
+  name: Cancel hot water boost
+  description: Stop a running hot water boost.

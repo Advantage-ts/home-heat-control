@@ -230,6 +230,10 @@ class SmartHeatingController:
         self._boiler_on_since: float | None = None
         self._boiler_rest_until: float = 0.0
 
+        from .hot_water import HotWaterController
+
+        self.hot_water = HotWaterController(hass, self)
+
         self._apply_config_defaults()
 
     async def async_start(self) -> None:
@@ -300,6 +304,7 @@ class SmartHeatingController:
     async def async_stop(self) -> None:
         """Listener entfernen."""
         self._unsubscribe_all()
+        self.hot_water.async_stop_listeners()
 
     def set_enabled(self, enabled: bool) -> None:
         """Controller aktivieren/deaktivieren."""
@@ -328,6 +333,9 @@ class SmartHeatingController:
         self._window_open_since.clear()
         self._window_closed_since.clear()
         self._window_paused_rooms.clear()
+
+        # Hot water runs whether or not room heating is enabled.
+        self.hot_water.reconfigure()
 
         if self._enabled:
             self.hass.async_create_task(self.async_start())

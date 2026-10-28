@@ -21,7 +21,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    async_add_entities([BoilerDemandSensor(hass, entry)], True)
+    async_add_entities([BoilerDemandSensor(hass, entry), HotWaterDemandSensor(hass, entry)], True)
 
 
 class BoilerDemandSensor(BinarySensorEntity):
@@ -72,3 +72,36 @@ class BoilerDemandSensor(BinarySensorEntity):
     @callback
     def _refresh(self) -> None:
         self.async_write_ha_state()
+
+
+class HotWaterDemandSensor(BoilerDemandSensor):
+    """On when Home Heat Control wants the hot water relay on."""
+
+    _attr_name = "Hot water demand"
+    _attr_icon = "mdi:water-boiler"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        super().__init__(hass, entry)
+        self._attr_unique_id = f"{entry.entry_id}_hot_water_demand"
+
+    @property
+    def is_on(self) -> bool | None:
+        controller = self._controller
+        return None if controller is None else controller.hot_water.demand
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        controller = self._controller
+        if controller is None:
+            return {}
+        hw = controller.hot_water
+        from homeassistant.util import dt as dt_util
+
+        boost_left = max(0, int((hw.boost_until - dt_util.now().timestamp()) / 60)) if hw.boost_until else 0
+        return {
+            "reason": hw.reason,
+            "enabled": hw.enabled,
+            "tank_temperature": hw._tank_temp(),
+            "boost_minutes_left": boost_left,
+            "watch_only": controller.is_watch_only(),
+        }
