@@ -1,4 +1,4 @@
-"""Helper-Funktionen für Smartdome Heat Control."""
+"""Helper-Funktionen für Home Heat Control."""
 from __future__ import annotations
 
 import logging
@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, State
 from homeassistant.helpers.area_registry import async_get as async_get_area_registry
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.device_registry import async_get as async_get_device_registry
 from homeassistant.helpers.entity_registry import async_get as async_get_entity_registry
 
@@ -268,3 +269,13 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
             base[key] = value
 
     return base
+
+
+def hhc_device_info(entry: ConfigEntry) -> DeviceInfo:
+    """One shared device so every entity id starts with home_heat_."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="Home Heat",
+        manufacturer="Advantage-ts",
+        model="Home Heat Control",
+    )

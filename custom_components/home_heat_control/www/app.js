@@ -1,4 +1,4 @@
-const DOMAIN = "smartdome_heat_control";
+const DOMAIN = "home_heat_control";
 const CONFIG_ENTITY_ID = `${DOMAIN}.config`;
 
 function getUiLanguage() {
@@ -41,7 +41,7 @@ const DEFAULT_WEEKLY_SCHEDULE = {
 
 const I18N = {
   en: {
-    title: "Smartdome Heat Control",
+    title: "Home Heat Control",
     subtitle:
       "Global settings on the left, rooms on the right. Rooms can use their own schedules.",
     version: "Version",
@@ -256,7 +256,7 @@ const I18N = {
   },
 
   de: {
-    title: "Smartdome Heat Control",
+    title: "Home Heat Control",
     subtitle:
       "Haupteinstellungen links, Räume rechts. Räume können unabhängig eigene Zeiten bekommen.",
     version: "Version",

@@ -1,6 +1,6 @@
-"""Konstanten für Smartdome Heat Control."""
+"""Konstanten für Home Heat Control."""
 
-DOMAIN = "smartdome_heat_control"
+DOMAIN = "home_heat_control"
 
 DATA_CONTROLLER = "controller"
 DATA_ENABLED = "enabled"

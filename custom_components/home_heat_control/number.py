@@ -1,4 +1,4 @@
-"""Number-Entities für Smartdome Heat Control."""
+"""Number-Entities für Home Heat Control."""
 from __future__ import annotations
 
 import logging
@@ -18,6 +18,8 @@ from .const import (
     DEFAULT_VACATION_TEMPERATURE,
     DOMAIN,
 )
+
+from .helpers import hhc_device_info
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +54,7 @@ class SmartHeatingVacationTemperatureNumber(NumberEntity):
         self.hass = hass
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_vacation_temperature"
+        self._attr_device_info = hhc_device_info(entry)
 
     @property
     def available(self) -> bool:
@@ -115,7 +118,7 @@ class SmartHeatingVacationTemperatureNumber(NumberEntity):
         self._push_state(config)
 
         _LOGGER.info(
-            "Smartdome Heat Control Urlaubstemperatur auf %.1f °C gesetzt",
+            "Home Heat Control Urlaubstemperatur auf %.1f °C gesetzt",
             float(value),
         )
 

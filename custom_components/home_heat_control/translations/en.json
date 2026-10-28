@@ -1,9 +1,9 @@
 {
-  "title": "Smartdome Heat Control",
+  "title": "Home Heat Control",
   "config": {
     "step": {
       "user": {
-        "title": "Set up Smartdome Heat Control",
+        "title": "Set up Home Heat Control",
         "description": "First select the **controller type** for the heating pump controller:\n\n- **Thermostat (climate entity)** – You have a smart heating circuit controller (e.g. Lambdatronic, Fröling, Viessmann). Smartdome sends target temperatures to the climate entity to activate or deactivate the heating. The boost delta value is used to temporarily raise the target temperature to switch the heating circuit on. An optional temperature sensor enables additional monitoring.\n- **Smart switch** – You have no heating circuit controller, only a smart on/off switch (e.g. Shelly, Sonoff). Smartdome switches it directly on or off — no temperature sensor required, no boost delta needed.\n\nIf you have no heating pump controller, leave the field empty — Smartdome will then only control the individual radiator valves.",
         "data": {
           "main_control_type": "Heating pump controller type",
@@ -38,7 +38,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Smartdome Heat Control",
+        "title": "Home Heat Control",
         "description": "Choose what you want to edit.",
         "data": {
           "action": "Section"

@@ -1,4 +1,4 @@
-"""Smartdome Heat Control – Integration Entry Point."""
+"""Home Heat Control – Integration Entry Point."""
 from __future__ import annotations
 
 import json
@@ -279,7 +279,7 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
 
     if os.path.exists(frontend_path):
         await hass.http.async_register_static_paths(
-            [StaticPathConfig("/smartdome_ui", frontend_path, False)]
+            [StaticPathConfig("/home_heat_ui", frontend_path, False)]
         )
     else:
         _LOGGER.error("Frontend-Ordner 'www' nicht gefunden in %s", frontend_path)
@@ -288,10 +288,10 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     frontend.async_register_built_in_panel(
         hass,
         component_name="iframe",
-        sidebar_title="Smartdome Heat",
+        sidebar_title="Heating",
         sidebar_icon="mdi:radiator",
-        frontend_url_path="smartdome_control",
-        config={"url": f"/smartdome_ui/index.html?v={version}"},
+        frontend_url_path="home_heat_control",
+        config={"url": f"/home_heat_ui/index.html?v={version}"},
         require_admin=False,
     )
 

@@ -1,4 +1,4 @@
-"""Switch-Entities für Smartdome Heat Control."""
+"""Switch-Entities für Home Heat Control."""
 from __future__ import annotations
 
 import logging
@@ -28,7 +28,7 @@ from .const import (
     DEFAULT_VACATION_ENABLED,
     DOMAIN,
 )
-from .helpers import apply_room_config_update
+from .helpers import hhc_device_info, apply_room_config_update
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -146,7 +146,7 @@ class SmartHeatingBaseSwitch(SwitchEntity):
 
 
 class SmartHeatingEnableSwitch(SmartHeatingBaseSwitch):
-    """Globaler Ein/Aus-Schalter für Smartdome Heat Control."""
+    """Globaler Ein/Aus-Schalter für Home Heat Control."""
 
     _attr_name = "Enabled"
     _attr_icon = "mdi:radiator"
@@ -154,6 +154,7 @@ class SmartHeatingEnableSwitch(SmartHeatingBaseSwitch):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(hass, entry)
         self._attr_unique_id = f"{entry.entry_id}_enabled"
+        self._attr_device_info = hhc_device_info(entry)
 
     @property
     def is_on(self) -> bool:
@@ -177,7 +178,7 @@ class SmartHeatingEnableSwitch(SmartHeatingBaseSwitch):
         self._apply_config_update(config)
 
         _LOGGER.info(
-            "Smartdome Heat Control wurde %s",
+            "Home Heat Control wurde %s",
             "aktiviert" if enabled else "deaktiviert",
         )
 
@@ -201,6 +202,7 @@ class SmartHeatingModeSwitch(SmartHeatingBaseSwitch):
         self._default_value = default_value
         self._attr_name = name
         self._attr_unique_id = f"{entry.entry_id}_{unique_suffix}"
+        self._attr_device_info = hhc_device_info(entry)
         self._attr_icon = icon
 
     @property
@@ -225,7 +227,7 @@ class SmartHeatingModeSwitch(SmartHeatingBaseSwitch):
         self._apply_config_update(config)
 
         _LOGGER.info(
-            "Smartdome Heat Control Modus %s wurde %s",
+            "Home Heat Control Modus %s wurde %s",
             self._config_key,
             "aktiviert" if enabled else "deaktiviert",
         )
@@ -267,7 +269,8 @@ class SmartdomeRoomEnabledSwitch(SmartdomeRoomBaseSwitch):
     ) -> None:
         super().__init__(hass, entry, room_id, room_label)
         self._attr_unique_id = f"{entry.entry_id}_room_{room_id}_enabled"
-        self._attr_name = f"{room_label} – Aktiv"
+        self._attr_device_info = hhc_device_info(entry)
+        self._attr_name = f"{room_label} enabled"
 
     @property
     def is_on(self) -> bool:
@@ -297,7 +300,8 @@ class SmartdomeRoomUseClimateSwitch(SmartdomeRoomBaseSwitch):
     ) -> None:
         super().__init__(hass, entry, room_id, room_label)
         self._attr_unique_id = f"{entry.entry_id}_room_{room_id}_use_climate"
-        self._attr_name = f"{room_label} – Klimaanlage nutzen"
+        self._attr_device_info = hhc_device_info(entry)
+        self._attr_name = f"{room_label} use air conditioning"
 
     @property
     def is_on(self) -> bool:
@@ -327,7 +331,8 @@ class SmartdomeRoomAwaySwitch(SmartdomeRoomBaseSwitch):
     ) -> None:
         super().__init__(hass, entry, room_id, room_label)
         self._attr_unique_id = f"{entry.entry_id}_room_{room_id}_away"
-        self._attr_name = f"{room_label} – Away Modus"
+        self._attr_device_info = hhc_device_info(entry)
+        self._attr_name = f"{room_label} away"
 
     @property
     def is_on(self) -> bool:

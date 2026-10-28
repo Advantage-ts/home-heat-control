@@ -1,4 +1,4 @@
-"""Select entities for Smartdome Heat Control."""
+"""Select entities for Home Heat Control."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from .const import (
     DOMAIN,
     HEATING_MODES,
 )
-from .helpers import apply_room_config_update
+from .helpers import hhc_device_info, apply_room_config_update
 
 ROOM_HEATING_MODE_OFF = "off"
 ROOM_HEATING_MODE_DEFAULT = "default"
@@ -51,7 +51,8 @@ class SmartdomeHeatingModeSelect(SelectEntity):
         self._entry = entry
         self._attr_has_entity_name = True
         self._attr_name = "Heating mode"
-        self._attr_unique_id = "smartdome_heat_control_heating_mode"
+        self._attr_unique_id = "home_heat_control_heating_mode"
+        self._attr_device_info = hhc_device_info(entry)
         self._attr_options = HEATING_MODES
         self._attr_icon = "mdi:radiator"
 
@@ -98,7 +99,8 @@ class SmartdomeRoomHeatingModeSelect(SelectEntity):
         self._entry = entry
         self._room_id = room_id
         self._attr_unique_id = f"{entry.entry_id}_room_{room_id}_heating_mode"
-        self._attr_name = f"{room_label} – Heizmodus"
+        self._attr_device_info = hhc_device_info(entry)
+        self._attr_name = f"{room_label} heating mode"
 
     @property
     def available(self) -> bool:

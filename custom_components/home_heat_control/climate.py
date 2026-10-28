@@ -1,4 +1,4 @@
-"""Climate-Entities (ein Thermostat pro Raum) für Smartdome Heat Control."""
+"""Climate-Entities (ein Thermostat pro Raum) für Home Heat Control."""
 from __future__ import annotations
 
 from typing import Any
@@ -24,7 +24,7 @@ from .const import (
     DOMAIN,
     SIGNAL_ROOM_STATE_UPDATED,
 )
-from .helpers import apply_room_config_update
+from .helpers import hhc_device_info, apply_room_config_update
 
 MIN_TEMP = 5.0
 MAX_TEMP = 30.0
@@ -84,7 +84,8 @@ class SmartdomeRoomClimate(ClimateEntity):
         self._entry = entry
         self._room_id = room_id
         self._attr_unique_id = f"{entry.entry_id}_room_{room_id}_climate"
-        self._attr_name = f"{room_label} – Heizung"
+        self._attr_device_info = hhc_device_info(entry)
+        self._attr_name = f"{room_label} heating"
 
     # --- Helfer -----------------------------------------------------------
 

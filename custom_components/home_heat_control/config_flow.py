@@ -1,4 +1,4 @@
-"""Config Flow für Smartdome Heat Control."""
+"""Config Flow für Home Heat Control."""
 from __future__ import annotations
 
 import uuid
@@ -241,7 +241,7 @@ class SmartdomeHeatControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._data[CONF_ROOMS] = self._discovered_rooms
             return self.async_create_entry(
-                title="Smartdome Heat Control",
+                title="Home Heat Control",
                 data=self._data,
             )
 

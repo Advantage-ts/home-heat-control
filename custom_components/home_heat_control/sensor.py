@@ -1,4 +1,4 @@
-"""Sensor-Entities für Smartdome Heat Control."""
+"""Sensor-Entities für Home Heat Control."""
 from __future__ import annotations
 
 from typing import Any
@@ -19,6 +19,8 @@ from .const import (
 
 ROOM_STATUS_OPTIONS = ["off", "idle", "heating", "residual_hold", "window_pause"]
 
+
+from .helpers import hhc_device_info
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -60,7 +62,8 @@ class SmartdomeRoomStatusSensor(SensorEntity):
         self._entry = entry
         self._room_id = room_id
         self._attr_unique_id = f"{entry.entry_id}_room_{room_id}_status"
-        self._attr_name = f"{room_label} – Status"
+        self._attr_device_info = hhc_device_info(entry)
+        self._attr_name = f"{room_label} status"
 
     @property
     def available(self) -> bool:
