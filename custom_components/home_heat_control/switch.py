@@ -11,6 +11,8 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CONF_WATCH_ONLY,
+    DEFAULT_WATCH_ONLY,
     CONF_AWAY_ENABLED,
     CONF_VACATION_ENABLED,
     CONF_ROOMS,
@@ -71,6 +73,15 @@ async def async_setup_entry(
             name="Cooling Mode",
             unique_suffix="cooling_mode",
             icon="mdi:snowflake",
+        ),
+        SmartHeatingModeSwitch(
+            hass,
+            entry,
+            config_key=CONF_WATCH_ONLY,
+            default_value=DEFAULT_WATCH_ONLY,
+            name="Watch only",
+            unique_suffix="watch_only",
+            icon="mdi:eye-outline",
         ),
     ]
 

@@ -15,6 +15,7 @@ from .const import (
     DATA_CONTROLLER,
     DOMAIN,
     SIGNAL_ROOM_STATE_UPDATED,
+    SIGNAL_DECISIONS_UPDATED,
 )
 
 ROOM_STATUS_OPTIONS = ["off", "idle", "heating", "residual_hold", "window_pause"]
@@ -39,6 +40,7 @@ async def async_setup_entry(
         label = str(room.get(CONF_ROOM_LABEL, room_id))
         entities.append(SmartdomeRoomStatusSensor(hass, entry, room_id, label))
 
+    entities.append(DecisionLogSensor(hass, entry))
     async_add_entities(entities, True)
 
 
@@ -117,4 +119,52 @@ class SmartdomeRoomStatusSensor(SensorEntity):
         # room_states enthält nur aktive Räume – bei einem deaktivierten Raum
         # (state wechselt auf "off") ist dieser Raum hier NICHT enthalten,
         # daher unabhängig vom Payload-Inhalt immer aktualisieren.
+        self.async_write_ha_state()
+
+
+class DecisionLogSensor(SensorEntity):
+    """Latest decision, with the most recent decisions as an attribute.
+
+    In watch-only mode every command it would have sent is listed here.
+    """
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+    _attr_name = "Decisions"
+    _attr_icon = "mdi:clipboard-text-clock-outline"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        self.hass = hass
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_decisions"
+        self._attr_device_info = hhc_device_info(entry)
+
+    @property
+    def _controller(self):
+        return self.hass.data.get(DOMAIN, {}).get(self._entry.entry_id, {}).get(DATA_CONTROLLER)
+
+    @property
+    def native_value(self) -> str | None:
+        controller = self._controller
+        if controller is None or not controller.decisions:
+            return None
+        return str(controller.decisions[0]["message"])[:250]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        controller = self._controller
+        if controller is None:
+            return {}
+        return {
+            "watch_only": controller.is_watch_only(),
+            "recent": list(controller.decisions),
+        }
+
+    async def async_added_to_hass(self) -> None:
+        self.async_on_remove(
+            async_dispatcher_connect(self.hass, SIGNAL_DECISIONS_UPDATED, self._refresh)
+        )
+
+    @callback
+    def _refresh(self) -> None:
         self.async_write_ha_state()

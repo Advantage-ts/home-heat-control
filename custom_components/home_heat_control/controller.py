@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from collections.abc import Callable
 from typing import Any
 
@@ -18,6 +19,22 @@ from homeassistant.helpers.event import (
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    CONF_BOILER_MAX_RUN_MINUTES,
+    CONF_BOILER_MIN_OFF_MINUTES,
+    CONF_BOILER_MIN_ON_MINUTES,
+    CONF_BOILER_REST_MINUTES,
+    CONF_MAX_ROOM_TARGET,
+    CONF_WATCH_ONLY,
+    DECISION_LOG_SIZE,
+    DEFAULT_BOILER_MAX_RUN_MINUTES,
+    DEFAULT_BOILER_MIN_OFF_MINUTES,
+    DEFAULT_BOILER_MIN_ON_MINUTES,
+    DEFAULT_BOILER_REST_MINUTES,
+    DEFAULT_MAX_ROOM_TARGET,
+    DEFAULT_WATCH_ONLY,
+    ROOM_TEMP_PLAUSIBLE_MAX,
+    ROOM_TEMP_PLAUSIBLE_MIN,
+    SIGNAL_DECISIONS_UPDATED,
     ADAPTIVE_BUCKET_MEDIUM_MAX_SECS,
     ADAPTIVE_BUCKET_SHORT_MAX_SECS,
     CONF_AWAY_ENABLED,
@@ -201,6 +218,17 @@ class SmartHeatingController:
         # damit nicht bei jeder Auswertung erneut gesendet wird, solange das
         # Gerät den neuen Zustand noch nicht gemeldet hat.
         self._switch_command_sent_at: dict[str, tuple[bool, float]] = {}
+
+        # Home Heat Control: decision log, boiler demand and boiler safety.
+        self.decisions: deque[dict[str, Any]] = deque(maxlen=DECISION_LOG_SIZE)
+        self.boiler_demand: bool = False
+        self.boiler_reason: str = "starting"
+        self.boiler_calling_rooms: list[str] = []
+        self.boiler_blocked_rooms: dict[str, str] = {}
+        self._boiler_on: bool = False
+        self._boiler_changed_at: float = 0.0
+        self._boiler_on_since: float | None = None
+        self._boiler_rest_until: float = 0.0
 
         self._apply_config_defaults()
 
@@ -776,6 +804,14 @@ class SmartHeatingController:
         return CONF_ROOM_TARGET_DAY
 
     def _effective_target_for_room(self, room: dict[str, Any]) -> float:
+        """Effective target, never above the configured ceiling."""
+        ceiling = self._safe_float(self.config.get(CONF_MAX_ROOM_TARGET, DEFAULT_MAX_ROOM_TARGET))
+        target = self._effective_target_for_room_uncapped(room)
+        if ceiling is not None and target > ceiling:
+            return ceiling
+        return target
+
+    def _effective_target_for_room_uncapped(self, room: dict[str, Any]) -> float:
         """Ermittelt die gültige Zieltemperatur."""
         vacation_enabled = bool(
             self.config.get(CONF_VACATION_ENABLED, DEFAULT_VACATION_ENABLED)
@@ -912,17 +948,10 @@ class SmartHeatingController:
         self._desired_targets[entity_id] = desired
         self._last_command_sent_at[entity_id] = now_ts
 
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                CLIMATE_DOMAIN,
-                "set_temperature",
-                {
+        self._call(CLIMATE_DOMAIN, "set_temperature", {
                     "entity_id": entity_id,
                     ATTR_TEMPERATURE: desired,
-                },
-                blocking=True,
-            )
-        )
+                })
 
     def _turn_switch_if_needed(self, entity_id: str, turn_on: bool) -> None:
         """Switch ein- oder ausschalten, aber nur wenn sich der Zustand ändert."""
@@ -931,14 +960,7 @@ class SmartHeatingController:
         if last is not None and abs(last - desired) < 0.01:
             return
         self._desired_targets[entity_id] = desired
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                SWITCH_DOMAIN,
-                "turn_on" if turn_on else "turn_off",
-                {"entity_id": entity_id},
-                blocking=True,
-            )
-        )
+        self._call(SWITCH_DOMAIN, "turn_on" if turn_on else "turn_off", {"entity_id": entity_id})
 
     def _set_room_switch_if_needed(
         self,
@@ -983,14 +1005,7 @@ class SmartHeatingController:
             return
 
         self._switch_command_sent_at[entity_id] = (turn_on, now_ts)
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                entity_id.split(".", 1)[0],
-                "turn_on" if turn_on else "turn_off",
-                {"entity_id": entity_id},
-                blocking=True,
-            )
-        )
+        self._call(entity_id.split(".", 1)[0], "turn_on" if turn_on else "turn_off", {"entity_id": entity_id})
 
     def _turn_off_disabled_room_switches(self) -> None:
         """Schalter-Aktoren deaktivierter Räume ausschalten."""
@@ -1007,42 +1022,156 @@ class SmartHeatingController:
         if self._last_hvac_mode.get(entity_id) == hvac_mode:
             return
         self._last_hvac_mode[entity_id] = hvac_mode
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                CLIMATE_DOMAIN,
-                "set_hvac_mode",
-                {"entity_id": entity_id, "hvac_mode": hvac_mode},
-                blocking=True,
-            )
-        )
+        self._call(CLIMATE_DOMAIN, "set_hvac_mode", {"entity_id": entity_id, "hvac_mode": hvac_mode})
 
     def _set_fan_mode_if_needed(self, entity_id: str, fan_mode: str) -> None:
         """Lüftermodus setzen, aber nur wenn er sich geändert hat."""
         if self._last_fan_mode.get(entity_id) == fan_mode:
             return
         self._last_fan_mode[entity_id] = fan_mode
-        self.hass.async_create_task(
-            self.hass.services.async_call(
-                CLIMATE_DOMAIN,
-                "set_fan_mode",
-                {"entity_id": entity_id, "fan_mode": fan_mode},
-                blocking=True,
-            )
-        )
+        self._call(CLIMATE_DOMAIN, "set_fan_mode", {"entity_id": entity_id, "fan_mode": fan_mode})
 
     def _set_preset_mode_if_needed(self, entity_id: str, preset_mode: str) -> None:
         """Preset-Modus setzen, aber nur wenn er sich geändert hat."""
         if self._last_preset_mode.get(entity_id) == preset_mode:
             return
         self._last_preset_mode[entity_id] = preset_mode
+        self._call(CLIMATE_DOMAIN, "set_preset_mode", {"entity_id": entity_id, "preset_mode": preset_mode})
+
+    # ------------------------------------------------------------------
+    # Home Heat Control: single gate for every command
+    # ------------------------------------------------------------------
+
+    def is_watch_only(self) -> bool:
+        return bool(self.config.get(CONF_WATCH_ONLY, DEFAULT_WATCH_ONLY))
+
+    def _record(self, kind: str, message: str, **extra: Any) -> None:
+        entry = {
+            "time": dt_util.now().isoformat(timespec="seconds"),
+            "kind": kind,
+            "message": message,
+            **extra,
+        }
+        self.decisions.appendleft(entry)
+        async_dispatcher_send(self.hass, SIGNAL_DECISIONS_UPDATED)
+
+    def _call(self, domain: str, service: str, data: dict[str, Any]) -> None:
+        """Send a command, or in watch-only mode just record it."""
+        target = data.get("entity_id", "")
+        detail = {k: v for k, v in data.items() if k != "entity_id"}
+        text = f"{domain}.{service} {target} {detail}".strip()
+        if self.is_watch_only():
+            _LOGGER.debug("Watch-only, not sent: %s", text)
+            self._record("would_send", text)
+            return
+        self._record("sent", text)
+        self.hass.async_create_task(
+            self.hass.services.async_call(domain, service, data, blocking=True)
+        )
+
+    def _notify(self, title: str, message: str) -> None:
+        _LOGGER.warning("%s: %s", title, message)
+        self._record("alert", f"{title}: {message}")
+        if self.is_watch_only():
+            return
         self.hass.async_create_task(
             self.hass.services.async_call(
-                CLIMATE_DOMAIN,
-                "set_preset_mode",
-                {"entity_id": entity_id, "preset_mode": preset_mode},
-                blocking=True,
+                "persistent_notification",
+                "create",
+                {"title": title, "message": message, "notification_id": "home_heat_control_boiler"},
+                blocking=False,
             )
         )
+
+    def _room_boiler_block_reason(
+        self, room_id: str, room: dict[str, Any], actual: float | None
+    ) -> str | None:
+        """Why a heating room must NOT call the boiler, or None if it may."""
+        if not (self._room_thermostats(room) or self._room_switch_actuators(room)):
+            return "no radiator valve"
+        if actual is None:
+            return "no thermometer reading"
+        if not (ROOM_TEMP_PLAUSIBLE_MIN <= actual <= ROOM_TEMP_PLAUSIBLE_MAX):
+            return f"implausible reading {actual:.1f}"
+        if room_id in self._room_sensor_fault:
+            return "thermometer fault"
+        return None
+
+    def _boiler_setting(self, key: str, default: float) -> float:
+        value = self._safe_float(self.config.get(key, default))
+        return float(default) if value is None else value
+
+    def _decide_boiler(self, raw_demand: bool) -> bool:
+        """Apply cooling lock-out, run limit and anti short-cycling."""
+        now_ts = dt_util.now().timestamp()
+        demand = raw_demand
+        reason = "room calling" if raw_demand else "no room calling"
+
+        if demand and self._is_cooling_active():
+            demand, reason = False, "cooling active"
+
+        max_run = self._boiler_setting(CONF_BOILER_MAX_RUN_MINUTES, DEFAULT_BOILER_MAX_RUN_MINUTES)
+        rest = self._boiler_setting(CONF_BOILER_REST_MINUTES, DEFAULT_BOILER_REST_MINUTES)
+        if now_ts < self._boiler_rest_until:
+            if demand:
+                demand, reason = False, "resting after run limit"
+        elif demand and max_run > 0 and self._boiler_on_since is not None:
+            if now_ts - self._boiler_on_since >= max_run * 60:
+                self._boiler_rest_until = now_ts + rest * 60
+                demand, reason = False, "run limit reached"
+                self._notify(
+                    "Heating run limit",
+                    f"The boiler has been on for {int(max_run)} minutes without a break. "
+                    f"It is resting for {int(rest)} minutes. Rooms calling: "
+                    f"{', '.join(self.boiler_calling_rooms) or 'none'}.",
+                )
+
+        # Anti short-cycling, only for ordinary demand changes.
+        if demand != self._boiler_on and reason in ("room calling", "no room calling"):
+            held = now_ts - self._boiler_changed_at
+            min_on = self._boiler_setting(CONF_BOILER_MIN_ON_MINUTES, DEFAULT_BOILER_MIN_ON_MINUTES) * 60
+            min_off = self._boiler_setting(CONF_BOILER_MIN_OFF_MINUTES, DEFAULT_BOILER_MIN_OFF_MINUTES) * 60
+            if self._boiler_on and held < min_on:
+                demand, reason = True, "minimum on time"
+            elif not self._boiler_on and held < min_off and self._boiler_changed_at:
+                demand, reason = False, "minimum off time"
+
+        if demand != self._boiler_on:
+            self._boiler_on = demand
+            self._boiler_changed_at = now_ts
+            self._record("boiler", f"Boiler {'ON' if demand else 'OFF'} ({reason})",
+                         rooms=list(self.boiler_calling_rooms))
+        if demand:
+            if self._boiler_on_since is None:
+                self._boiler_on_since = now_ts
+        else:
+            self._boiler_on_since = None
+
+        changed = demand != self.boiler_demand or reason != self.boiler_reason
+        self.boiler_demand = demand
+        self.boiler_reason = reason
+        if changed:
+            async_dispatcher_send(self.hass, SIGNAL_DECISIONS_UPDATED)
+        return demand
+
+    def _enforce_main_switch(self, entity_id: str, turn_on: bool) -> None:
+        """Keep the boiler relay matching the decision, even after a restart
+        or a manual change, re-sending at most every 60 seconds."""
+        if self.is_watch_only():
+            # Smartdome may still own the relay, so only record changes in
+            # our own decision rather than fighting the relay's real state.
+            self._turn_switch_if_needed(entity_id, turn_on)
+            return
+        state = self.hass.states.get(entity_id)
+        if state is not None and state.state not in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            if (state.state == "on") == turn_on:
+                self._desired_targets[entity_id] = 1.0 if turn_on else 0.0
+                return
+            now_ts = dt_util.now().timestamp()
+            if now_ts - self._last_command_sent_at.get(entity_id, 0.0) >= 60:
+                self._desired_targets.pop(entity_id, None)
+                self._last_command_sent_at[entity_id] = now_ts
+        self._turn_switch_if_needed(entity_id, turn_on)
 
     def _is_cooling_active(self) -> bool:
         """Prüfen ob der Kühlmodus aktiv ist (manuell oder automatisch)."""
@@ -1515,7 +1644,13 @@ class SmartHeatingController:
                 state = ROOM_STATE_IDLE
                 self._room_state[room_id] = ROOM_STATE_IDLE
 
+            block_reason = (
+                self._room_boiler_block_reason(room_id, room, actual)
+                if state == ROOM_STATE_HEATING
+                else None
+            )
             room_states[room_id] = {
+                "boiler_block_reason": block_reason,
                 "actual": actual,
                 "target": target,
                 "control_target": control_target,
@@ -1601,8 +1736,9 @@ class SmartHeatingController:
                 # noch kurz aktiv, damit Restwärme verteilt wird.
                 any_circuit_needs_heat = any(
                     rs["state"] in (ROOM_STATE_HEATING, ROOM_STATE_RESIDUAL_HOLD)
+                    and not rs.get("boiler_block_reason")
                     for rs in circuit_room_states.values()
-                )
+                ) and not self._is_cooling_active()
                 # Übergang heating → idle: _desired_targets löschen damit
                 # Befehl garantiert gesendet wird.
                 was_heating = self._circuit_heating_active.get(circuit_id, False)
@@ -1657,10 +1793,17 @@ class SmartHeatingController:
                     self._set_temp_if_needed(ct, circuit_target)
         else:
             # Single-circuit fallback: use global main_thermostat or main_switch
-            any_room_needs_heat = any(
-                rs["state"] == ROOM_STATE_HEATING
-                for rs in room_states.values()
-            )
+            self.boiler_calling_rooms = [
+                rooms[rid].get("label", rid)
+                for rid, rs in room_states.items()
+                if rs["state"] == ROOM_STATE_HEATING and not rs["boiler_block_reason"]
+            ]
+            self.boiler_blocked_rooms = {
+                rooms[rid].get("label", rid): rs["boiler_block_reason"]
+                for rid, rs in room_states.items()
+                if rs["state"] == ROOM_STATE_HEATING and rs["boiler_block_reason"]
+            }
+            any_room_needs_heat = self._decide_boiler(bool(self.boiler_calling_rooms))
             main_control_type = self.config.get(CONF_MAIN_CONTROL_TYPE, "thermostat")
             if main_control_type == CONTROL_TYPE_SWITCH:
                 main_entity = self._as_entity_id(self.config.get(CONF_MAIN_SWITCH))
@@ -1675,7 +1818,7 @@ class SmartHeatingController:
                 self._circuit_heating_active[main_entity] = any_room_needs_heat
 
                 if main_control_type == CONTROL_TYPE_SWITCH:
-                    self._turn_switch_if_needed(main_entity, any_room_needs_heat)
+                    self._enforce_main_switch(main_entity, any_room_needs_heat)
                 else:
                     # Read main sensor once – used for both heating and idle target.
                     main_sensor_id = self._as_entity_id(
