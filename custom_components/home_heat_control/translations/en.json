@@ -1,0 +1,136 @@
+{
+  "title": "Smartdome Heat Control",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up Smartdome Heat Control",
+        "description": "First select the **controller type** for the heating pump controller:\n\n- **Thermostat (climate entity)** – You have a smart heating circuit controller (e.g. Lambdatronic, Fröling, Viessmann). Smartdome sends target temperatures to the climate entity to activate or deactivate the heating. The boost delta value is used to temporarily raise the target temperature to switch the heating circuit on. An optional temperature sensor enables additional monitoring.\n- **Smart switch** – You have no heating circuit controller, only a smart on/off switch (e.g. Shelly, Sonoff). Smartdome switches it directly on or off — no temperature sensor required, no boost delta needed.\n\nIf you have no heating pump controller, leave the field empty — Smartdome will then only control the individual radiator valves.",
+        "data": {
+          "main_control_type": "Heating pump controller type",
+          "main_thermostat": "Heating pump controller (climate entity)",
+          "main_switch": "Heating pump controller (switch entity)",
+          "main_sensor": "Heating pump controller temperature sensor",
+          "boost_delta": "Boost delta",
+          "tolerance": "Tolerance",
+          "night_start": "Night start",
+          "morning_boost_start": "Day start / morning boost start",
+          "morning_boost_end": "Morning boost end",
+          "vacation_enabled": "Vacation mode enabled",
+          "vacation_temperature": "Vacation temperature",
+          "away_enabled": "Away mode enabled",
+          "outdoor_sensor": "Outdoor temperature sensor",
+          "outdoor_temp_cutoff_enabled": "Outdoor temperature cutoff enabled",
+          "outdoor_temp_cutoff": "Switch off heating above outdoor temperature",
+          "outdoor_min_room_temperature": "Minimum room temperature during outdoor cutoff (0 = off)",
+          "outdoor_cutoff_hysteresis": "Outdoor cutoff hysteresis"
+        }
+      },
+      "rooms": {
+        "title": "Confirm rooms",
+        "description": "{room_count} rooms were detected{room_names}. Confirm to finish setup.",
+        "data": {
+          "confirm": "Use detected rooms"
+        }
+      }
+    },
+    "error": {}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Smartdome Heat Control",
+        "description": "Choose what you want to edit.",
+        "data": {
+          "action": "Section"
+        }
+      },
+      "global": {
+        "title": "Global settings",
+        "description": "Select the **controller type** for the heating pump controller:\n\n- **Thermostat (climate entity)** – Smartdome controls a heating circuit controller or climate entity via target temperature. Smartdome raises the target temperature by the boost delta value to switch the heating circuit on, and lowers it again to switch it off. An optional temperature sensor enables monitoring.\n- **Smart switch** – Smartdome switches a switch directly on (heating on) or off (heating off). No temperature sensor required, no boost delta needed — control is purely binary.\n\nIf no heating pump controller is present, simply leave the field empty.",
+        "data": {
+          "main_control_type": "Heating pump controller type",
+          "main_thermostat": "Heating pump controller (climate entity)",
+          "main_switch": "Heating pump controller (switch entity)",
+          "main_sensor": "Heating pump controller temperature sensor",
+          "boost_delta": "Boost delta",
+          "tolerance": "Tolerance",
+          "night_start": "Global night start",
+          "morning_boost_start": "Global day start",
+          "morning_boost_end": "Morning boost end",
+          "vacation_enabled": "Vacation mode enabled",
+          "vacation_temperature": "Vacation temperature",
+          "away_enabled": "Away mode enabled",
+          "outdoor_sensor": "Outdoor temperature sensor",
+          "outdoor_temp_cutoff_enabled": "Outdoor temperature cutoff enabled",
+          "outdoor_temp_cutoff": "Switch off heating above outdoor temperature",
+          "outdoor_min_room_temperature": "Minimum room temperature during outdoor cutoff (0 = off)",
+          "outdoor_cutoff_hysteresis": "Outdoor cutoff hysteresis"
+        }
+      },
+      "rooms_list": {
+        "title": "Manage rooms",
+        "description": "Select a room to edit or create a new one.",
+        "data": {
+          "room_action": "Room"
+        }
+      },
+      "edit_room": {
+        "title": "Edit room",
+        "description": "Edit radiator valve, room temperature sensor, temperatures, and schedule for this room.\n\n**No smart radiator valve?** Leave the field empty — the room will operate in **sensor-only mode**: it contributes to the central heating signal but cannot be individually controlled.",
+        "data": {
+          "label": "Label",
+          "thermostat": "Radiator valve",
+          "sensor": "Room temperature sensor",
+          "target_day": "Day target temperature",
+          "target_night": "Night target temperature",
+          "away_temperature": "Away temperature",
+          "day_start": "Day start",
+          "night_start": "Night start",
+          "enabled": "Room enabled",
+          "delete_room": "Delete room",
+          "window_sensor": "Window sensor",
+          "control_profile": "Thermostat control profile"
+        }
+      },
+      "add_room": {
+        "title": "Add room",
+        "description": "Create a new room manually.\n\n**No smart radiator valve?** Leave the field empty — the room will operate in **sensor-only mode**: it contributes to the central heating signal but cannot be individually controlled.",
+        "data": {
+          "label": "Label",
+          "thermostat": "Radiator valve",
+          "sensor": "Room temperature sensor",
+          "target_day": "Day target temperature",
+          "target_night": "Night target temperature",
+          "away_temperature": "Away temperature",
+          "day_start": "Day start",
+          "night_start": "Night start",
+          "enabled": "Room enabled",
+          "window_sensor": "Window sensor",
+          "control_profile": "Thermostat control profile"
+        }
+      }
+    },
+    "error": {}
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "global": "⚙️ Global settings",
+        "rooms": "🏠 Manage rooms",
+        "discover": "🔎 Rediscover rooms"
+      }
+    },
+    "control_profile": {
+      "options": {
+        "standard": "Standard thermostat",
+        "self_regulating": "Self-regulating thermostat (e.g. Homematic OCCU)"
+      }
+    },
+    "main_control_type": {
+      "options": {
+        "thermostat": "Thermostat",
+        "switch": "Smart switch"
+      }
+    }
+  }
+}

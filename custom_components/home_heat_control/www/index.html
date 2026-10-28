@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smartdome Heat Control</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #141a22;
+      --panel-2: #1b2430;
+      --text: #eef3f8;
+      --muted: #9fb0c3;
+      --line: #2b3848;
+      --accent: #4da3ff;
+      --success: #2ecc71;
+      --danger: #ff6b6b;
+      --warning: #f5b942;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(180deg, #0b0f14 0%, #101721 100%);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1450px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .title-block h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .title-block p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .version-badge {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .room-live-temp {
+      color: #9fd0ff;
+      font-weight: 700;
+    }
+
+    .room-heating {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .room-window-open {
+      font-size: 16px;
+      line-height: 1;
+      filter: drop-shadow(0 0 4px rgba(77, 163, 255, 0.2));
+    }
+
+    .settings-group {
+      margin-bottom: 20px;
+    }
+
+    .settings-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .settings-group-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .toggle + .toggle {
+      margin-top: 10px;
+    }
+
+    .toggle-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .toggle-temp {
+      width: 70px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    /* −/+ stepper for temperature inputs */
+    .num-stepper {
+      display: flex;
+      align-items: stretch;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .num-stepper input {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      -moz-appearance: textfield;
+    }
+
+    .num-stepper input::-webkit-outer-spin-button,
+    .num-stepper input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .num-stepper-btn {
+      flex-shrink: 0;
+      min-width: 42px;
+      padding: 0 10px;
+      border: 1px solid var(--line);
+      background: #0f151d;
+      box-shadow: none;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .num-stepper-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .num-stepper-compact {
+      width: auto;
+      gap: 4px;
+    }
+
+    .num-stepper-compact .num-stepper-btn {
+      min-width: 30px;
+      padding: 0 6px;
+      font-size: 15px;
+      border-radius: 10px;
+    }
+
+    /* Mode picker */
+    .mode-picker {
+      position: relative;
+      width: 100%;
+    }
+
+    .mode-picker-trigger {
+      width: 100%;
+      min-height: 54px;
+      border: 1px solid var(--line);
+      background: #0f151d;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 40px 10px 14px;
+      cursor: pointer;
+      text-align: left;
+      box-shadow: none;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: relative;
+    }
+
+    .mode-picker-trigger::after {
+      content: "▾";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .mode-picker-trigger:hover,
+    .mode-picker.open .mode-picker-trigger {
+      border-color: var(--accent);
+    }
+
+    .mode-picker-trigger-label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .mode-picker-trigger-desc {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .mode-picker-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      z-index: 60;
+      background: rgba(20, 26, 34, 0.98);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 8px;
+      display: none;
+    }
+
+    .mode-picker.open .mode-picker-dropdown {
+      display: block;
+    }
+
+    .mode-picker-option {
+      width: 100%;
+      border: 1px solid transparent;
+      background: #0f151d;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-align: left;
+      box-shadow: none;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      cursor: pointer;
+      margin-bottom: 4px;
+    }
+
+    .mode-picker-option:last-child {
+      margin-bottom: 0;
+    }
+
+    .mode-picker-option:hover,
+    .mode-picker-option.selected {
+      border-color: var(--accent);
+      background: #162233;
+    }
+
+    .mode-picker-option-label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .mode-picker-option-desc {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Circuit cards */
+    .circuit-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 14px;
+      background: #0f151d;
+      display: grid;
+      gap: 10px;
+    }
+
+    .circuit-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .circuit-card-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .circuits-list {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    /* Live status chips (global settings + rooms) */
+    .live-status {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    .live-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+    }
+
+    .live-chip-value {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* Adaptive overshoot bucket display in rooms */
+    .room-adaptive {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .adaptive-bucket {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .adaptive-bucket-value {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* Room group header */
+    .room-group-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding: 6px 2px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 4px;
+      margin-top: 10px;
+    }
+
+    .room-group-header:first-child {
+      margin-top: 0;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 11px 16px;
+      background: var(--panel-2);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 600;
+      box-shadow: var(--shadow);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #08111a;
+    }
+
+    button.success {
+      background: var(--success);
+      color: #07140c;
+    }
+
+    button.danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    button.ghost {
+      box-shadow: none;
+      border: 1px solid var(--line);
+      background: transparent;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-bottom: 18px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.02);
+      font-size: 14px;
+    }
+
+    .status.ok {
+      border-color: rgba(46, 204, 113, 0.45);
+      color: #baf0cf;
+    }
+
+    .status.warn {
+      border-color: rgba(245, 185, 66, 0.45);
+      color: #ffe1a3;
+    }
+
+    .status.err {
+      border-color: rgba(255, 107, 107, 0.45);
+      color: #ffc1c1;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 430px minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .sticky-col {
+      position: sticky;
+      top: 16px;
+      align-self: start;
+    }
+
+    .card {
+      background: rgba(20, 26, 34, 0.94);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .card h2 {
+      margin: 0 0 16px;
+      font-size: 18px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .field.full {
+      grid-column: 1 / -1;
+    }
+
+    label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    input,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #0f151d;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 14px;
+      outline: none;
+    }
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #0f151d;
+    }
+
+    .toggle-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .toggle-text strong {
+      font-size: 14px;
+    }
+
+    .toggle-text span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .sub-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .footer-note {
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .rooms-card {
+      min-height: 70vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .rooms-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .rooms-scroll {
+      overflow-y: auto;
+      max-height: calc(100vh - 170px);
+      padding-right: 6px;
+    }
+
+    .rooms {
+      display: grid;
+      gap: 14px;
+    }
+
+    .room {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      background: #10161e;
+    }
+
+    .room.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent);
+    }
+
+    .room-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .room-title {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .room-subtitle {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 3px;
+    }
+
+    .room-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* Searchable entity picker */
+    .entity-picker {
+      position: relative;
+      width: 100%;
+    }
+
+    .entity-picker-trigger {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      background: #0f151d;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 42px 10px 14px;
+      cursor: pointer;
+      text-align: left;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .entity-picker-trigger::after {
+      content: "▾";
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 14px;
+      pointer-events: none;
+    }
+
+    .entity-picker-trigger:hover,
+    .entity-picker.open .entity-picker-trigger {
+      border-color: var(--accent);
+    }
+
+    .entity-picker-empty {
+      color: var(--muted);
+    }
+
+    .entity-picker-icon {
+      width: 18px;
+      min-width: 18px;
+      text-align: center;
+      opacity: 0.95;
+    }
+
+    .entity-picker-label {
+      min-width: 0;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .entity-picker-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      z-index: 60;
+      background: rgba(20, 26, 34, 0.98);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 10px;
+      display: none;
+    }
+
+    .entity-picker.open .entity-picker-dropdown {
+      display: block;
+    }
+
+    .entity-picker-search {
+      width: 100%;
+      margin-bottom: 10px;
+      background: #0f151d;
+    }
+
+    .entity-picker-list {
+      max-height: 240px;
+      overflow: auto;
+      display: grid;
+      gap: 6px;
+    }
+
+    .entity-picker-option {
+      width: 100%;
+      border: 1px solid transparent;
+      background: #0f151d;
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 12px;
+      text-align: left;
+      box-shadow: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .entity-picker-option:hover,
+    .entity-picker-option.active {
+      border-color: var(--accent);
+      background: #162233;
+    }
+
+    .entity-picker-option-text {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
+    }
+
+    .entity-picker-option-title {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 14px;
+    }
+
+    .entity-picker-option-id {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .entity-picker-no-results {
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.62);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 9999;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .modal-content {
+      width: min(760px, 100%);
+      max-height: 90vh;
+      overflow: auto;
+      background: rgba(20, 26, 34, 0.98);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .modal-header button {
+      min-width: 44px;
+      padding: 10px 14px;
+    }
+
+    .schedule-days {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .schedule-days button {
+      margin: 0;
+      border: 1px solid var(--line);
+      background: #0f151d;
+      box-shadow: none;
+    }
+
+    .schedule-days button.active {
+      background: var(--accent);
+      color: #08111a;
+      border-color: transparent;
+    }
+
+    .schedule-entries {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .schedule-entry {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #0f151d;
+    }
+
+    .schedule-entry button {
+      min-width: 44px;
+      padding: 10px 12px;
+    }
+
+    .schedule-empty {
+      color: var(--muted);
+      font-size: 13px;
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .schedule-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .schedule-footer-left,
+    .schedule-footer-right {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .schedule-copy-rooms-list {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    .schedule-copy-room {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #0f151d;
+    }
+
+    .schedule-copy-room input[type="checkbox"] {
+      flex: 0 0 auto;
+    }
+
+    .schedule-copy-room-label {
+      font-size: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sticky-col {
+        position: static;
+      }
+
+      .rooms-scroll {
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+      }
+    }
+
+    /* Live label badges */
+    .label-live {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .label-live[data-entity] {
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 3px;
+    }
+
+    .label-live[data-entity]:hover {
+      color: var(--text);
+    }
+
+    /* Help modal */
+    .help-modal-content {
+      width: min(820px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .help-lang-toggle {
+      display: flex;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .help-lang-toggle button {
+      border-radius: 0;
+      border: none;
+      box-shadow: none;
+      padding: 7px 14px;
+      font-size: 13px;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .help-lang-toggle button.active {
+      background: var(--accent);
+      color: #08111a;
+    }
+
+    .help-body {
+      padding-top: 4px;
+    }
+
+    .help-section {
+      padding: 18px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .help-section:last-child {
+      border-bottom: none;
+      padding-bottom: 4px;
+    }
+
+    .help-section h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .help-section p {
+      margin: 0 0 10px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .help-section p:last-child {
+      margin-bottom: 0;
+    }
+
+    .help-section ul {
+      margin: 0 0 10px;
+      padding-left: 20px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .help-section ul:last-child {
+      margin-bottom: 0;
+    }
+
+    .help-section li {
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text);
+    }
+
+    .help-section li strong {
+      color: var(--text);
+    }
+
+    .help-tip {
+      background: rgba(77, 163, 255, 0.08);
+      border: 1px solid rgba(77, 163, 255, 0.25);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #9fd0ff;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 700px) {
+      .fields,
+      .room-grid,
+      .schedule-entry {
+        grid-template-columns: 1fr;
+      }
+
+      .wrap {
+        padding: 16px;
+      }
+
+      .schedule-footer {
+        flex-direction: column;
+      }
+
+      .schedule-footer-left,
+      .schedule-footer-right {
+        width: 100%;
+      }
+
+      .schedule-footer-left button,
+      .schedule-footer-right button {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header">
+      <div class="title-block">
+        <h1 data-i18n="title">Smartdome Heat Control</h1>
+        <p data-i18n="subtitle">
+          Haupteinstellungen links, Räume rechts. Räume können unabhängig eigene Zeiten bekommen.
+        </p>
+        <div class="version-badge" id="versionBadge">Version</div>
+      </div>
+
+      <div class="actions">
+        <button id="helpBtn" class="ghost" data-i18n="help_btn">
+          Hilfe
+        </button>
+        <button id="reloadRoomsBtn" class="ghost" data-i18n="reload_rooms">
+          Räume neu erkennen
+        </button>
+        <button id="reloadConfigBtn" class="ghost" data-i18n="reload_config">
+          Neu laden
+        </button>
+        <button id="saveBtn" class="primary" data-i18n="save_config">
+          Konfiguration speichern
+        </button>
+      </div>
+    </div>
+
+    <div id="statusBox" class="status warn" data-i18n="status_loading">
+      Lade Konfiguration …
+    </div>
+
+    <div class="layout">
+      <div class="sticky-col">
+        <section class="card">
+          <h2 data-i18n="global_settings">Globale Einstellungen</h2>
+
+          <!-- Steuerung -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_control">Steuerung</div>
+
+            <div class="toggle">
+              <div class="toggle-text">
+                <strong data-i18n="control_enabled">Steuerung aktiv</strong>
+                <span data-i18n="control_enabled_hint">
+                  Wenn ausgeschaltet, greift die Integration nicht mehr in Thermostate ein.
+                </span>
+              </div>
+              <input id="enabled" type="checkbox" />
+            </div>
+
+            <div class="toggle">
+              <div class="toggle-text">
+                <strong data-i18n="vacation_mode">Urlaubsmodus</strong>
+                <span data-i18n="vacation_mode_hint">
+                  Setzt alle Räume auf die globale Urlaubstemperatur.
+                </span>
+              </div>
+              <div class="toggle-right">
+                <input id="vacation_temperature" class="toggle-temp" type="number" min="5" max="20" step="0.5" />
+                <input id="vacation_enabled" type="checkbox" />
+              </div>
+            </div>
+
+            <div class="toggle">
+              <div class="toggle-text">
+                <strong data-i18n="away_mode">Nicht Zuhause</strong>
+                <span data-i18n="away_mode_hint">
+                  Verwendet pro Raum die konfigurierte Away-Temperatur.
+                </span>
+              </div>
+              <input id="away_enabled" type="checkbox" />
+            </div>
+          </div>
+
+          <!-- Außentemperatur -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_outdoor">Außentemperatur</div>
+            <div class="fields">
+              <div class="field full">
+                <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span data-i18n="outdoor_sensor">Außentemperatursensor</span>
+                  <span id="global_outdoor_live" class="label-live"></span>
+                </label>
+                <div id="outdoor_sensor_picker"></div>
+              </div>
+            </div>
+            <div class="toggle" style="margin-top:10px;">
+              <div class="toggle-text">
+                <strong data-i18n="outdoor_temp_cutoff_enabled">Abschaltung aktiv</strong>
+                <span data-i18n="outdoor_temp_cutoff_enabled_hint">
+                  Heizung wird unterdrückt wenn Außentemperatur ≥ Schwellenwert.
+                </span>
+              </div>
+              <div class="toggle-right">
+                <input id="outdoor_temp_cutoff" class="toggle-temp" type="number" min="-20" max="30" step="0.5" value="15" />
+                <input id="outdoor_temp_cutoff_enabled" type="checkbox" />
+              </div>
+            </div>
+            <div class="toggle" style="margin-top:10px;">
+              <div class="toggle-text">
+                <strong data-i18n="outdoor_cutoff_hysteresis">Hysterese (°C)</strong>
+                <span data-i18n="outdoor_cutoff_hysteresis_hint">
+                  Die Sperre wird erst wieder aufgehoben, wenn die Außentemperatur unter Schwellenwert − Hysterese fällt.
+                </span>
+              </div>
+              <div class="toggle-right">
+                <input id="outdoor_cutoff_hysteresis" class="toggle-temp" type="number" min="0" max="5" step="0.5" value="2" />
+              </div>
+            </div>
+            <div class="toggle" style="margin-top:10px;">
+              <div class="toggle-text">
+                <strong data-i18n="outdoor_min_room_temperature">Mindest-Raumtemperatur (°C)</strong>
+                <span data-i18n="outdoor_min_room_temperature_hint">
+                  Während der Sperre wird nur noch bis zu dieser Temperatur geheizt. 0 = Heizung komplett gesperrt.
+                </span>
+              </div>
+              <div class="toggle-right">
+                <input id="outdoor_min_room_temperature" class="toggle-temp" type="number" min="0" max="25" step="0.5" value="0" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Kühlen -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_cooling">Kühlen</div>
+            <div class="toggle">
+              <div class="toggle-text">
+                <strong data-i18n="cooling_enabled">Kühlen aktiv</strong>
+                <span data-i18n="cooling_enabled_hint">
+                  Aktiviert den Kühlmodus manuell über Klimaanlagen.
+                </span>
+              </div>
+              <div class="toggle-right">
+                <input id="cooling_enabled" type="checkbox" />
+              </div>
+            </div>
+            <div class="toggle" style="margin-top:8px;">
+              <div class="toggle-text">
+                <strong data-i18n="cooling_auto">Auto-Kühlen</strong>
+                <span data-i18n="cooling_auto_hint">
+                  Aktiviert Kühlen automatisch wenn Außentemperatur ≥ Schwellenwert.
+                </span>
+              </div>
+              <div class="toggle-right">
+                <input id="cooling_threshold" class="toggle-temp" type="number" min="15" max="45" step="0.5" value="24" />
+                <input id="cooling_auto" type="checkbox" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Heizpumpensteuerung -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_thermostat">Heizpumpensteuerung</div>
+            <div class="fields">
+              <div class="field full">
+                <label for="main_control_type" data-i18n="main_control_type">Steuertyp</label>
+                <select id="main_control_type">
+                  <option value="thermostat" data-i18n="control_type_thermostat">Thermostat</option>
+                  <option value="switch" data-i18n="control_type_switch">Smarter Schalter (Switch)</option>
+                </select>
+              </div>
+              <div class="field" id="main_thermostat_field">
+                <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span data-i18n="main_thermostat">Heizpumpensteuerung (Climate-Entity)</span>
+                  <span id="global_thermostat_live" class="label-live"></span>
+                </label>
+                <div id="main_thermostat_picker"></div>
+              </div>
+              <div class="field" id="main_switch_field" style="display:none;">
+                <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span data-i18n="main_switch">Heizpumpensteuerung (Switch-Entity)</span>
+                  <span id="global_switch_live" class="label-live"></span>
+                </label>
+                <div id="main_switch_picker"></div>
+              </div>
+              <div class="field" id="main_sensor_field">
+                <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <span data-i18n="main_sensor">Temperatursensor</span>
+                  <span id="global_sensor_live" class="label-live"></span>
+                </label>
+                <div id="main_sensor_picker"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Heizung -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_heating">Heizung</div>
+            <div class="fields">
+              <div class="field full">
+                <label data-i18n="heating_mode">Heizmodus</label>
+                <div id="heating_mode_picker"></div>
+              </div>
+              <div class="field" id="energy_hold_field">
+                <label for="energy_residual_heat_hold" data-i18n="energy_residual_heat_hold">
+                  Nachlaufzeit Energy (s)
+                </label>
+                <input id="energy_residual_heat_hold" type="number" min="0" step="1" value="180" />
+              </div>
+              <div class="field">
+                <label for="boost_delta" data-i18n="boost_delta">Boost-Delta (°C)</label>
+                <input id="boost_delta" type="number" min="0" step="0.5" />
+              </div>
+              <div class="field">
+                <label for="tolerance" data-i18n="tolerance">Toleranz (°C)</label>
+                <input id="tolerance" type="number" min="0" step="0.5" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Zeiten -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_times">Zeiten</div>
+            <div class="fields">
+              <div class="field">
+                <label for="morning_boost_start" data-i18n="morning_boost_start">Globale Tag-Startzeit</label>
+                <input id="morning_boost_start" type="time" />
+              </div>
+              <div class="field">
+                <label for="night_start" data-i18n="night_start">Globale Nacht-Startzeit</label>
+                <input id="night_start" type="time" />
+              </div>
+              <div class="field">
+                <label for="morning_boost_end" data-i18n="morning_boost_end">Morgen-Boost Ende</label>
+                <input id="morning_boost_end" type="time" />
+              </div>
+            </div>
+            <div class="sub-actions">
+              <button id="applyTimesToRoomsBtn" class="ghost" data-i18n="apply_times">
+                Globale Zeiten in alle Räume übernehmen
+              </button>
+            </div>
+            <div class="footer-note" data-i18n="footer_note">
+              Der Übernehmen-Button setzt für alle Räume:
+              <strong>Tag-Start = globale Tag-Startzeit</strong> und
+              <strong>Nacht-Start = globale Nacht-Startzeit</strong>.
+            </div>
+          </div>
+
+          <!-- Temperaturen -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_temperatures">Temperaturen</div>
+            <div class="fields">
+              <div class="field">
+                <label for="global_target_day" data-i18n="global_target_day">Zieltemperatur Tag (°C)</label>
+                <input id="global_target_day" type="number" min="5" max="30" step="0.5" value="21" />
+              </div>
+              <div class="field">
+                <label for="global_target_night" data-i18n="global_target_night">Zieltemperatur Nacht (°C)</label>
+                <input id="global_target_night" type="number" min="5" max="30" step="0.5" value="18" />
+              </div>
+              <div class="field">
+                <label for="global_away_temperature" data-i18n="global_away_temperature">Away-Temperatur (°C)</label>
+                <input id="global_away_temperature" type="number" min="5" max="25" step="0.5" value="17" />
+              </div>
+            </div>
+            <div class="sub-actions">
+              <button id="applyTempsToRoomsBtn" class="ghost" data-i18n="apply_temps">
+                Globale Temperaturen in alle Räume übernehmen
+              </button>
+            </div>
+            <div class="footer-note" data-i18n="footer_note_temps">
+              Der Übernehmen-Button setzt für alle Räume die globalen Ziel- und Away-Temperaturen.
+              Raumspezifische Werte werden dabei überschrieben.
+            </div>
+          </div>
+
+          <!-- Heizkreise -->
+          <div class="settings-group">
+            <div class="settings-group-label" data-i18n="section_circuits">Heizkreise</div>
+            <div class="footer-note" style="margin-top:0; margin-bottom:12px;" data-i18n="circuits_hint">
+              Nur erforderlich wenn das Gebäude mehrere unabhängige Heizkreise besitzt,
+              die jeweils eine eigene Heizpumpensteuerung haben.
+            </div>
+            <div id="circuitsList" class="circuits-list"></div>
+            <button id="addCircuitBtn" class="ghost" data-i18n="add_circuit" style="width:100%;">
+              Heizkreis hinzufügen
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <section class="card rooms-card">
+        <div class="rooms-header">
+          <div>
+            <h2 data-i18n="rooms_title">Räume</h2>
+          </div>
+
+          <button id="addRoomBtn" class="success" data-i18n="add_room">
+            Raum hinzufügen
+          </button>
+        </div>
+
+        <div class="rooms-scroll">
+          <div id="roomsContainer" class="rooms"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="schedule-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="schedule-modal-title">Weekly Schedule</h2>
+        <button id="schedule-close" type="button" class="ghost">✕</button>
+      </div>
+
+      <div class="schedule-days">
+        <button type="button" data-day="monday">Mon</button>
+        <button type="button" data-day="tuesday">Tue</button>
+        <button type="button" data-day="wednesday">Wed</button>
+        <button type="button" data-day="thursday">Thu</button>
+        <button type="button" data-day="friday">Fri</button>
+        <button type="button" data-day="saturday">Sat</button>
+        <button type="button" data-day="sunday">Sun</button>
+      </div>
+
+      <div id="schedule-entries" class="schedule-entries"></div>
+
+      <div class="schedule-footer">
+        <div class="schedule-footer-left">
+          <button id="schedule-add" type="button" class="ghost">Add time block</button>
+          <button id="schedule-copy-rooms" type="button" class="ghost">Copy to other rooms</button>
+        </div>
+        <div class="schedule-footer-right">
+          <button id="schedule-cancel" type="button" class="ghost">Cancel</button>
+          <button id="schedule-save" type="button" class="primary">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="schedule-copy-modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="schedule-copy-title">Copy weekly schedule</h2>
+        <button id="schedule-copy-close" type="button" class="ghost">✕</button>
+      </div>
+
+      <div id="schedule-copy-rooms-list" class="schedule-copy-rooms-list"></div>
+
+      <div class="schedule-footer">
+        <div class="schedule-footer-left"></div>
+        <div class="schedule-footer-right">
+          <button id="schedule-copy-cancel" type="button" class="ghost">Cancel</button>
+          <button id="schedule-copy-apply" type="button" class="primary">Apply</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="entity-picker-modal" class="modal hidden">
+    <div class="modal-content" style="width: min(540px, 100%); max-height: 85vh; display: flex; flex-direction: column; gap: 10px;">
+      <div class="modal-header">
+        <h2 id="entity-picker-modal-title">Entity wählen</h2>
+        <button id="entity-picker-modal-close" type="button" class="ghost">✕</button>
+      </div>
+      <input
+        id="entity-picker-modal-search"
+        type="text"
+        style="margin: 0;"
+      />
+      <div id="entity-picker-modal-list" class="entity-picker-list" style="max-height: 60vh; overflow-y: auto;"></div>
+    </div>
+  </div>
+
+  <!-- Help modal -->
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-content help-modal-content">
+      <div class="modal-header">
+        <h2>Smartdome Heat Control</h2>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <div class="help-lang-toggle">
+            <button id="help-lang-de">DE</button>
+            <button id="help-lang-en">EN</button>
+          </div>
+          <button id="help-modal-close" type="button" class="ghost">✕</button>
+        </div>
+      </div>
+
+      <div class="help-body">
+
+        <!-- ══ GERMAN ══════════════════════════════════════════════════════════ -->
+        <div class="help-lang-content" data-lang="de">
+
+          <div class="help-section">
+            <h3>🚀 Erste Schritte</h3>
+            <p>Nach der Installation über HACS erscheint die Integration unter <strong>Einstellungen → Integrationen</strong>. Füge sie dort hinzu — danach öffnet sich dieses Panel automatisch.</p>
+            <ul>
+              <li><strong>Steuerung aktiv</strong> muss eingeschaltet sein, damit die Integration Thermostate steuert.</li>
+              <li>Lege über <strong>Raum hinzufügen</strong> deine Räume an oder erkenne vorhandene über <strong>Räume neu erkennen</strong>.</li>
+              <li>Klicke auf <strong>Konfiguration speichern</strong> um alle Änderungen zu übernehmen.</li>
+            </ul>
+            <div class="help-tip">💡 Änderungen werden erst wirksam nachdem du gespeichert hast.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>🌡️ Heizpumpensteuerung</h3>
+            <p>Alle Felder sind <strong>optional</strong> — du kannst die Integration auch nur mit Heizkörperventilen ohne zentrale Steuerung nutzen.</p>
+            <ul>
+              <li><strong>Thermostat (Climate-Entity):</strong> Smartdome steuert einen Heizkreisregler (z.B. Lambdatronic, Fröling, Viessmann) per Solltemperatur. Der Boost-Delta-Wert hebt die Solltemperatur an, sobald ein Raum heizt, und senkt sie wieder wenn alle Räume warm sind.</li>
+              <li><strong>Switch:</strong> Smartdome schaltet einen smarten Schalter (z.B. Shelly, Sonoff) direkt ein oder aus — kein Temperatursensor notwendig, kein Boost-Delta erforderlich.</li>
+              <li><strong>Temperatursensor:</strong> Optional — wird nur zum Monitoring verwendet. Nützlich wenn die Climate-Entity keinen guten internen Sensor hat.</li>
+            </ul>
+            <div class="help-tip">💡 Wenn du mehrere Heizkreise hast (z.B. Erdgeschoss / Obergeschoss), kannst du unter <em>Heizkreise</em> jedem Kreis eine eigene Heizpumpensteuerung zuweisen.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>⚙️ Heizmodi</h3>
+            <ul>
+              <li><strong>Comfort:</strong> Ventile bleiben länger offen. Weniger Temperaturschwankungen, Komfort im Vordergrund. Mehr Energieverbrauch möglich.</li>
+              <li><strong>Balanced:</strong> Empfohlener Standard. Gute Balance aus Komfort und Energieeffizienz.</li>
+              <li><strong>Energy:</strong> Ventile schließen früher. Reduziert Überhitzen, Energiesparen im Vordergrund. Leichte Temperaturschwankungen möglich.</li>
+              <li><strong>Adaptive:</strong> Lernt das Verhalten jedes Raums und stoppt die Heizung früh genug, damit die Restwärme den Raum exakt auf Solltemperatur bringt. Braucht einige Heizvorgänge zum Einlernen.</li>
+            </ul>
+          </div>
+
+          <div class="help-section">
+            <h3>🔁 Heizkreise</h3>
+            <p>Heizkreise sind <strong>nur notwendig</strong> wenn dein Gebäude mehrere physisch getrennte Heizkreise hat (z.B. Fußbodenheizung Erdgeschoss + Heizkörper Obergeschoss), die jeweils über eine eigene Heizpumpensteuerung gesteuert werden.</p>
+            <ul>
+              <li>Erstelle einen Heizkreis über <strong>Heizkreis hinzufügen</strong> und weise ihm eine Heizpumpensteuerung zu.</li>
+              <li>Weise Räume diesem Kreis über das Feld <strong>Heizkreis</strong> im Raum zu.</li>
+              <li>Räume ohne Kreis verwenden weiterhin die globale Heizpumpensteuerung.</li>
+              <li>Über die Checkbox <strong>Heizkreis aktiv</strong> lässt sich ein Kreis deaktivieren — der Controller ignoriert ihn dann vollständig und schaltet seine Heizpumpensteuerung auf Minimum.</li>
+            </ul>
+            <div class="help-tip">💡 Wenn du nur einen Heizkreis hast, brauchst du hier nichts konfigurieren.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>🌡️ Außentemperatur-Abschaltung</h3>
+            <p>Wenn ein Außentemperatursensor konfiguriert ist, kann die Heizung automatisch unterdrückt werden, sobald die Außentemperatur einen Schwellenwert erreicht oder überschreitet.</p>
+            <ul>
+              <li><strong>Außentemperatursensor:</strong> Beliebiger Sensor oder Climate-Entity mit Temperaturattribut.</li>
+              <li><strong>Abschaltung aktiv:</strong> Muss aktiviert sein damit die Funktion greift.</li>
+              <li><strong>Schwellenwert:</strong> –20 °C bis +30 °C (Standard: 15 °C). Wird die Außentemperatur erreicht oder überschritten, wird die Heizung nicht eingeschaltet.</li>
+            </ul>
+            <div class="help-tip">💡 Raumthermostate verbleiben auf ihrem normalen Idle-Sollwert — kein Frostschutzmodus. Die Funktion reagiert in Echtzeit auf Sensorzustandsänderungen.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>🏠 Räume</h3>
+            <ul>
+              <li><strong>Thermostat:</strong> Der Heizkörperthermostat dieses Raums. Wird direkt gesteuert.</li>
+              <li><strong>Temperatursensor:</strong> Optionaler externer Sensor (z.B. Wandsensor). Wird für die Regelung verwendet wenn gesetzt.</li>
+              <li><strong>Fensterkontakte:</strong> Beliebig viele Fenster- oder Türkontakte. Sobald <em>einer</em> offen meldet, pausiert die Heizung für diesen Raum.</li>
+              <li><strong>Zieltemperatur Tag / Nacht:</strong> Gewünschte Raumtemperatur je Tageszeit (in 0,5 °C-Schritten).</li>
+              <li><strong>Nachtabsenkung aktiv:</strong> Checkbox direkt neben der Nacht-Zieltemperatur. Wenn deaktiviert, verwendet der Raum immer die Tages-Zieltemperatur — unabhängig von der Uhrzeit.</li>
+              <li><strong>Away-Temperatur:</strong> Temperatur wenn der Nicht-Zuhause-Modus aktiv ist.</li>
+              <li><strong>Wochenschema:</strong> Individuelle Zeitsteuerung für diesen Raum — überschreibt die globalen Zeiten.</li>
+              <li><strong>Kalibrierungsoffset:</strong> Korrigiert einen fixen Messfehler des Raumthermostats (–5 bis +5 °C, in 0,5 °C Schritten). Nützlich wenn das Thermostat z.B. systematisch 1 °C zu hoch regelt.</li>
+            </ul>
+          </div>
+
+          <div class="help-section">
+            <h3>🧠 Adaptive Heizung</h3>
+            <p>Im Adaptive-Modus lernt die Integration wie stark jeder Raum nach dem Abschalten noch nachschwingt (Overshoot). Die Integration schaltet die Heizung früher ab, damit die Restwärme den Raum exakt auf Solltemperatur bringt.</p>
+            <p>Das Lernen passiert in <strong>drei Zeitbuckets</strong> — je nachdem wie lange der Raum heizt:</p>
+            <ul>
+              <li><strong>Kurz (&lt; 15 min):</strong> Wenig Restwärme, kleiner Overshoot-Wert.</li>
+              <li><strong>Mittel (15–45 min):</strong> Typischer Heizbetrieb.</li>
+              <li><strong>Lang (&gt; 45 min):</strong> Starkes Aufheizen, mehr Restwärme im System.</li>
+            </ul>
+            <p>Die gelernten Werte werden gespeichert und bleiben nach einem Neustart erhalten. Nach 5–10 Heizvorgängen je Bucket ist die Regelung spürbar genauer.</p>
+            <div class="help-tip">💡 Die aktuell gelernten Werte werden in der Raumkarte unter <em>Adaptive Overshoot</em> angezeigt.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>💡 Tipps &amp; häufige Fragen</h3>
+            <ul>
+              <li><strong>Steuerung aktiv aus:</strong> Die Integration schreibt keinerlei Sollwerte auf Thermostate — sie greift komplett nicht ein.</li>
+              <li><strong>climate-Entity als Sensor:</strong> Trage eine climate-Entity als Temperatursensor ein — die Integration liest automatisch das Attribut <code>current_temperature</code> aus.</li>
+              <li><strong>Mehrere Fensterkontakte:</strong> Pro Raum können beliebig viele Sensoren hinzugefügt werden. Es reicht wenn <em>einer</em> offen ist um die Heizung zu pausieren.</li>
+              <li><strong>Räume verschwinden nach Reload:</strong> Nutze <em>Konfiguration speichern</em> bevor du <em>Neu laden</em> klickst — sonst gehen ungespeicherte Änderungen verloren.</li>
+              <li><strong>HACS-Update erscheint nicht:</strong> Stelle sicher dass die Versionsnummer in <code>manifest.json</code> mit dem GitHub-Release-Tag übereinstimmt.</li>
+            </ul>
+          </div>
+
+        </div>
+
+        <!-- ══ ENGLISH ════════════════════════════════════════════════════════ -->
+        <div class="help-lang-content hidden" data-lang="en">
+
+          <div class="help-section">
+            <h3>🚀 Getting Started</h3>
+            <p>After installing via HACS, the integration appears under <strong>Settings → Integrations</strong>. Add it there — this panel will open automatically.</p>
+            <ul>
+              <li><strong>Control enabled</strong> must be switched on for the integration to control thermostats.</li>
+              <li>Add rooms using <strong>Add room</strong> or discover existing areas via <strong>Reload rooms</strong>.</li>
+              <li>Click <strong>Save configuration</strong> to apply all changes.</li>
+            </ul>
+            <div class="help-tip">💡 Changes only take effect after you save.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>🌡️ Main Thermostat &amp; Temperature Sensor</h3>
+            <p>Both fields are <strong>optional</strong> — you can use the integration with only per-room thermostats.</p>
+            <ul>
+              <li><strong>Main thermostat:</strong> Controls all rooms that have no dedicated thermostat. It is set to the target temperature as soon as at least one such room wants to heat.</li>
+              <li><strong>Temperature sensor:</strong> Used for measuring only — the integration never writes to it. Useful when the thermostat's built-in sensor is inaccurate.</li>
+            </ul>
+            <p>A <strong>climate entity</strong> (e.g. a radiator thermostat) can also be used as a sensor — the integration then reads the <code>current_temperature</code> attribute automatically.</p>
+            <div class="help-tip">💡 If you have multiple heating circuits (e.g. ground floor / upper floor), assign a dedicated main thermostat to each circuit under <em>Heating circuits</em>.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>⚙️ Heating Modes</h3>
+            <ul>
+              <li><strong>Comfort:</strong> Valves stay open longer. Less temperature fluctuation, comfort first. Higher energy use possible.</li>
+              <li><strong>Balanced:</strong> Recommended default. Good balance of comfort and efficiency.</li>
+              <li><strong>Energy:</strong> Valves close earlier. Reduces overheating, energy saving first. Slight temperature swings possible.</li>
+              <li><strong>Adaptive:</strong> Learns each room's behavior and stops heating early enough for residual heat to bring the room exactly to the target temperature. Needs a few heating cycles to calibrate.</li>
+            </ul>
+          </div>
+
+          <div class="help-section">
+            <h3>🔁 Heating Circuits</h3>
+            <p>Heating circuits are <strong>only needed</strong> if your building has multiple physically separate circuits (e.g. underfloor heating ground floor + radiators upper floor), each controlled by its own main thermostat or pump.</p>
+            <ul>
+              <li>Create a circuit via <strong>Add heating circuit</strong> and assign a main thermostat to it.</li>
+              <li>Assign rooms to the circuit using the <strong>Heating circuit</strong> field in the room card.</li>
+              <li>Rooms without a circuit use the global main thermostat.</li>
+              <li>Use the <strong>Circuit active</strong> checkbox to disable a circuit — the controller will fully ignore it and set its pump controller to minimum.</li>
+            </ul>
+            <div class="help-tip">💡 If you have only one heating circuit, you don't need to configure anything here.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>🌡️ Outdoor Temperature Cutoff</h3>
+            <p>When an outdoor temperature sensor is configured, heating can be automatically suppressed once the outdoor temperature reaches or exceeds a threshold.</p>
+            <ul>
+              <li><strong>Outdoor temperature sensor:</strong> Any sensor or climate entity with a temperature attribute.</li>
+              <li><strong>Cutoff enabled:</strong> Must be active for the feature to take effect.</li>
+              <li><strong>Threshold:</strong> –20 °C to +30 °C (default: 15 °C). Once the outdoor temperature reaches or exceeds this value, heating is suppressed.</li>
+            </ul>
+            <div class="help-tip">💡 Room thermostats stay at their normal idle setpoint — no frost protection mode. The feature responds in real time to sensor state changes.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>🏠 Rooms</h3>
+            <ul>
+              <li><strong>Thermostat:</strong> The radiator thermostat for this room. Controlled directly by the integration.</li>
+              <li><strong>Temperature sensor:</strong> Optional external sensor (e.g. wall sensor). Used for control logic when set.</li>
+              <li><strong>Window sensors:</strong> Any number of window or door sensors. If <em>any one</em> reports open, heating is paused for that room.</li>
+              <li><strong>Day / Night target temperature:</strong> Desired room temperature for each time of day (in 0.5 °C steps).</li>
+              <li><strong>Night setback active:</strong> Checkbox next to the night target temperature. When disabled, the room always uses the day target temperature regardless of the time of day.</li>
+              <li><strong>Away temperature:</strong> Temperature when away mode is active.</li>
+              <li><strong>Weekly schedule:</strong> Individual time control for this room — overrides the global times.</li>
+              <li><strong>Calibration offset:</strong> Corrects a fixed measurement error in the room thermostat (–5 to +5 °C, in 0.5 °C steps). Useful if the thermostat consistently regulates 1 °C too high, for example.</li>
+            </ul>
+          </div>
+
+          <div class="help-section">
+            <h3>🧠 Adaptive Heating</h3>
+            <p>In Adaptive mode the integration learns how much each room overshoots after the heating stops. It switches off the heating early enough for residual heat to bring the room exactly to the target temperature.</p>
+            <p>Learning happens in <strong>three duration buckets</strong> — depending on how long the room has been heating:</p>
+            <ul>
+              <li><strong>Short (&lt; 15 min):</strong> Little residual heat, small overshoot value.</li>
+              <li><strong>Medium (15–45 min):</strong> Typical heating cycle.</li>
+              <li><strong>Long (&gt; 45 min):</strong> Heavy heating, more residual heat in the system.</li>
+            </ul>
+            <p>Learned values are persisted and survive restarts. After 5–10 heating cycles per bucket the control becomes noticeably more accurate.</p>
+            <div class="help-tip">💡 Current learned values are shown in the room card under <em>Adaptive Overshoot</em>.</div>
+          </div>
+
+          <div class="help-section">
+            <h3>💡 Tips &amp; FAQ</h3>
+            <ul>
+              <li><strong>Control disabled:</strong> The integration writes no setpoints to any thermostat — it does not intervene at all.</li>
+              <li><strong>Climate entity as sensor:</strong> Enter a climate entity as the temperature sensor — the integration automatically reads its <code>current_temperature</code> attribute.</li>
+              <li><strong>Multiple window sensors:</strong> Add as many sensors as you like per room. It only takes <em>one</em> to be open to pause heating.</li>
+              <li><strong>Rooms disappear after reload:</strong> Use <em>Save configuration</em> before clicking <em>Reload</em> — unsaved changes are lost otherwise.</li>
+              <li><strong>HACS update not showing:</strong> Make sure the version in <code>manifest.json</code> matches the GitHub release tag exactly.</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const v = new URLSearchParams(window.location.search).get('v') || 'dev';
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = './app.js?v=' + v;
+      document.currentScript.replaceWith(s);
+    })();
+  </script>
+</body>
+</html>

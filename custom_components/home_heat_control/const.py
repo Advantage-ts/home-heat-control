@@ -1,0 +1,226 @@
+"""Konstanten für Smartdome Heat Control."""
+
+DOMAIN = "smartdome_heat_control"
+
+DATA_CONTROLLER = "controller"
+DATA_ENABLED = "enabled"
+
+# Dispatcher-Signal: wird nach jeder Auswertung mit dem Raumzustand gesendet,
+# damit Entities (z.B. sensor.py) sich ohne Polling aktualisieren können.
+SIGNAL_ROOM_STATE_UPDATED = f"{DOMAIN}_room_state_updated"
+
+PLATFORMS: list[str] = ["switch", "number", "select", "sensor", "climate"]
+
+# Services
+SERVICE_UPDATE_CONFIG = "update_config"
+SERVICE_ADD_ROOM = "add_room"
+SERVICE_REMOVE_ROOM = "remove_room"
+SERVICE_RELOAD = "reload"
+
+# Globale Config-Keys
+CONF_MAIN_THERMOSTAT = "main_thermostat"
+CONF_MAIN_SENSOR = "main_sensor"
+
+# Heizkreise
+CONF_CIRCUITS = "circuits"
+CONF_CIRCUIT_LABEL = "label"
+CONF_CIRCUIT_MAIN_THERMOSTAT = "main_thermostat"
+CONF_CIRCUIT_MAIN_SENSOR = "main_sensor"
+CONF_CIRCUIT_ENABLED = "enabled"
+CONF_ROOM_CIRCUIT_ID = "circuit_id"
+CONF_BOOST_DELTA = "boost_delta"
+CONF_TOLERANCE = "tolerance"
+CONF_NIGHT_START = "night_start"
+CONF_MORNING_BOOST_START = "morning_boost_start"
+CONF_MORNING_BOOST_END = "morning_boost_end"
+CONF_ROOMS = "rooms"
+CONF_ROOM_WINDOW_SENSOR = "window_sensor"
+CONF_ROOM_WINDOW_SENSORS = "window_sensors"
+
+CONF_ENERGY_RESIDUAL_HEAT_HOLD = "energy_residual_heat_hold"
+DEFAULT_ENERGY_RESIDUAL_HEAT_HOLD = 180
+
+# Room-Keys
+CONF_ROOM_LABEL = "label"
+CONF_ROOM_AREA_ID = "area_id"
+CONF_ROOM_THERMOSTAT = "thermostat"
+CONF_ROOM_SENSOR = "sensor"
+CONF_ROOM_TARGET_DAY = "target_day"
+CONF_ROOM_TARGET_NIGHT = "target_night"
+CONF_ROOM_DAY_START = "day_start"
+CONF_ROOM_NIGHT_START = "night_start"
+CONF_ROOM_ENABLED = "enabled"
+CONF_ROOM_NIGHT_SETBACK_ENABLED = "night_setback_enabled"
+CONF_ROOM_CALLING_FOR_HEAT = "calling_for_heat"
+
+#Uralub und weg
+CONF_VACATION_ENABLED = "vacation_enabled"
+CONF_VACATION_TEMPERATURE = "vacation_temperature"
+CONF_AWAY_ENABLED = "away_enabled"
+CONF_ROOM_AWAY_TEMPERATURE = "away_temperature"
+CONF_WINDOW_OPEN_DELAY = "window_open_delay"
+CONF_WINDOW_CLOSE_DELAY = "window_close_delay"
+
+# Global config
+CONF_HEATING_MODE = "heating_mode"
+
+# Room learning keys
+CONF_ROOM_LEARNED_OVERSHOOT = "learned_overshoot"
+CONF_ROOM_LEARNED_OVERSHOOT_SHORT = "learned_overshoot_short"
+CONF_ROOM_LEARNED_OVERSHOOT_MEDIUM = "learned_overshoot_medium"
+CONF_ROOM_LEARNED_OVERSHOOT_LONG = "learned_overshoot_long"
+CONF_ROOM_HEATING_CYCLE_ACTIVE = "heating_cycle_active"
+CONF_ROOM_CYCLE_TARGET_TEMP = "cycle_target_temp"
+CONF_ROOM_CYCLE_PEAK_TEMP = "cycle_peak_temp"
+CONF_ROOM_CYCLE_START_TS = "cycle_start_ts"
+CONF_ROOM_CYCLE_PEAKED = "cycle_peaked"
+
+# Adaptive bucket boundaries (seconds)
+ADAPTIVE_BUCKET_SHORT_MAX_SECS = 900   # < 15 min
+ADAPTIVE_BUCKET_MEDIUM_MAX_SECS = 2700  # 15–45 min
+                                        # > 45 min = long bucket
+
+CONF_ROOM_CONTROL_PROFILE = "control_profile"
+CONF_ROOM_THERMOSTAT_OFFSET = "thermostat_offset"
+
+CONTROL_PROFILE_STANDARD = "standard"
+CONTROL_PROFILE_SELF_REGULATING = "self_regulating"
+
+DEFAULT_ROOM_CONTROL_PROFILE = CONTROL_PROFILE_STANDARD
+DEFAULT_ROOM_THERMOSTAT_OFFSET = 0.0
+
+# Steuertyp Hauptthermostat / Heizkreis (Thermostat oder Switch)
+CONF_MAIN_CONTROL_TYPE = "main_control_type"
+CONF_MAIN_SWITCH = "main_switch"
+CONF_CIRCUIT_CONTROL_TYPE = "control_type"
+CONF_CIRCUIT_MAIN_SWITCH = "main_switch"
+
+CONTROL_TYPE_THERMOSTAT = "thermostat"
+CONTROL_TYPE_SWITCH = "switch"
+
+DEFAULT_MAIN_CONTROL_TYPE = CONTROL_TYPE_THERMOSTAT
+
+#Wochenplan
+CONF_ROOM_WEEKLY_SCHEDULE = "weekly_schedule"
+
+DEFAULT_ROOM_WEEKLY_SCHEDULE = {
+    "monday": [],
+    "tuesday": [],
+    "wednesday": [],
+    "thursday": [],
+    "friday": [],
+    "saturday": [],
+    "sunday": [],
+}
+
+# Heating modes
+HEATING_MODE_COMFORT = "comfort"
+HEATING_MODE_BALANCED = "balanced"
+HEATING_MODE_ENERGY = "energy"
+HEATING_MODE_ADAPTIVE = "adaptive"
+
+HEATING_MODES = [
+    HEATING_MODE_COMFORT,
+    HEATING_MODE_BALANCED,
+    HEATING_MODE_ENERGY,
+    HEATING_MODE_ADAPTIVE,
+]
+
+DEFAULT_HEATING_MODE = HEATING_MODE_BALANCED
+
+# Adaptive defaults
+DEFAULT_ADAPTIVE_OVERSHOOT = 0.3
+MIN_ADAPTIVE_OVERSHOOT = 0.0
+MAX_ADAPTIVE_OVERSHOOT = 1.5
+
+# Per-bucket defaults (short cycles overshoot less, long cycles overshoot more)
+DEFAULT_ADAPTIVE_OVERSHOOT_SHORT = 0.2
+DEFAULT_ADAPTIVE_OVERSHOOT_MEDIUM = 0.4
+DEFAULT_ADAPTIVE_OVERSHOOT_LONG = 0.7
+
+DEFAULT_WINDOW_OPEN_DELAY = 120
+DEFAULT_WINDOW_CLOSE_DELAY = 60
+
+
+
+# Außentemperatur-Abschaltung
+CONF_OUTDOOR_SENSOR = "outdoor_sensor"
+CONF_OUTDOOR_TEMP_CUTOFF_ENABLED = "outdoor_temp_cutoff_enabled"
+CONF_OUTDOOR_TEMP_CUTOFF = "outdoor_temp_cutoff"
+DEFAULT_OUTDOOR_TEMP_CUTOFF_ENABLED = False
+DEFAULT_OUTDOOR_TEMP_CUTOFF = 15.0
+CONF_OUTDOOR_CUTOFF_HYSTERESIS = "outdoor_cutoff_hysteresis"
+DEFAULT_OUTDOOR_CUTOFF_HYSTERESIS = 2.0
+# Mindest-Raumtemperatur während der Außensperre; 0 = aus (Heizung ganz gesperrt)
+CONF_OUTDOOR_MIN_ROOM_TEMPERATURE = "outdoor_min_room_temperature"
+DEFAULT_OUTDOOR_MIN_ROOM_TEMPERATURE = 0.0
+
+# Feature #54 – Globale Temperatureinstellungen
+CONF_GLOBAL_TARGET_DAY = "global_target_day"
+CONF_GLOBAL_TARGET_NIGHT = "global_target_night"
+CONF_GLOBAL_AWAY_TEMPERATURE = "global_away_temperature"
+DEFAULT_GLOBAL_TARGET_DAY = 21.0
+DEFAULT_GLOBAL_TARGET_NIGHT = 18.0
+DEFAULT_GLOBAL_AWAY_TEMPERATURE = 17.0
+
+# Feature #53 – Reihenfolge der Räume
+CONF_ROOM_ORDER = "order"
+
+# Feature #56 – Heizmodus pro Raum
+CONF_ROOM_HEATING_MODE = "room_heating_mode"
+
+# Feature #69 – Klimaanlage pro Raum
+CONF_ROOM_CLIMATE_ENTITY = "climate_entity"
+CONF_ROOM_USE_CLIMATE = "use_climate"
+
+# Feature – Mehrere Heizkörperventile pro Raum
+CONF_ROOM_EXTRA_THERMOSTATS = "extra_thermostats"
+DEFAULT_ROOM_EXTRA_THERMOSTATS: list[str] = []
+
+# Feature #77 – Schalter-Aktoren pro Raum (z.B. Shelly-Relais für Fußbodenheizung)
+CONF_ROOM_SWITCH_ACTUATORS = "switch_actuators"
+CONF_ROOM_HYSTERESIS = "hysteresis"
+CONF_ROOM_SWITCH_MIN_ON = "switch_min_on"
+CONF_ROOM_SWITCH_MIN_OFF = "switch_min_off"
+DEFAULT_ROOM_SWITCH_ACTUATORS: list[str] = []
+DEFAULT_ROOM_HYSTERESIS = None  # None = globale Toleranz verwenden
+DEFAULT_ROOM_SWITCH_MIN_ON = 5  # Minuten
+DEFAULT_ROOM_SWITCH_MIN_OFF = 5  # Minuten
+SWITCH_ACTUATOR_DOMAINS = ("switch", "input_boolean")
+
+# Feature – Away-Modus pro Raum
+CONF_ROOM_AWAY_ENABLED = "room_away_enabled"
+DEFAULT_ROOM_AWAY_ENABLED = False
+
+# Feature #70 – Kühlen
+CONF_COOLING_ENABLED = "cooling_enabled"
+CONF_COOLING_AUTO = "cooling_auto"
+CONF_COOLING_THRESHOLD = "cooling_threshold"
+DEFAULT_COOLING_ENABLED = False
+DEFAULT_COOLING_AUTO = False
+DEFAULT_COOLING_THRESHOLD = 24.0
+
+CONF_ROOM_COOL_TARGET_DAY = "cool_target_day"
+CONF_ROOM_COOL_TARGET_NIGHT = "cool_target_night"
+CONF_ROOM_CLIMATE_FAN_MODE = "climate_fan_mode"
+CONF_ROOM_CLIMATE_PRESET = "climate_preset"
+CONF_ROOM_CLIMATE_HVAC_MODE = "climate_hvac_mode"
+DEFAULT_ROOM_COOL_TARGET_DAY = 23.0
+DEFAULT_ROOM_COOL_TARGET_NIGHT = 24.0
+DEFAULT_ROOM_CLIMATE_FAN_MODE = "auto"
+DEFAULT_ROOM_CLIMATE_PRESET = ""
+DEFAULT_ROOM_CLIMATE_HVAC_MODE = "cool"
+
+# Defaults
+DEFAULT_ENABLED = True
+DEFAULT_BOOST_DELTA = 2.0
+DEFAULT_TOLERANCE = 0.5
+DEFAULT_NIGHT_START = "22:00"
+DEFAULT_MORNING_BOOST_START = "05:00"
+DEFAULT_MORNING_BOOST_END = "05:30"
+DEFAULT_TARGET_DAY = 21.0
+DEFAULT_TARGET_NIGHT = 18.0
+DEFAULT_VACATION_ENABLED = False
+DEFAULT_VACATION_TEMPERATURE = 14.0
+DEFAULT_AWAY_ENABLED = False
+DEFAULT_ROOM_AWAY_TEMPERATURE = 17.0

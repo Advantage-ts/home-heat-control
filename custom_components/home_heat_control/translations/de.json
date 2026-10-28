@@ -1,0 +1,136 @@
+{
+  "title": "Smartdome Heat Control",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smartdome Heat Control einrichten",
+        "description": "Wähle zuerst den **Steuertyp** für die Heizpumpensteuerung:\n\n- **Thermostat (Climate-Entity)** – Du hast einen smarten Heizkreisregler (z.B. Lambdatronic, Fröling, Viessmann). Smartdome sendet Solltemperaturen an das Climate-Entity, um die Heizung zu aktivieren oder zu deaktivieren. Der Boost-Delta-Wert wird verwendet, um die Solltemperatur gezielt anzuheben und so den Heizkreis einzuschalten. Ein optionaler Temperatursensor ermöglicht zusätzliches Monitoring.\n- **Smarter Schalter (Switch)** – Du hast keinen Heizkreisregler, sondern nur einen smarten Ein-/Ausschalter (z.B. Shelly, Sonoff). Smartdome schaltet diesen direkt ein oder aus — kein Temperatursensor notwendig, kein Boost-Delta erforderlich.\n\nFalls du keine Heizpumpensteuerung hast, lass das Feld leer – Smartdome steuert dann nur die einzelnen Heizkörperventile.",
+        "data": {
+          "main_control_type": "Steuertyp Heizpumpensteuerung",
+          "main_thermostat": "Heizpumpensteuerung (Climate-Entity)",
+          "main_switch": "Heizpumpensteuerung (Switch-Entity)",
+          "main_sensor": "Temperatursensor Heizpumpensteuerung",
+          "boost_delta": "Boost-Delta",
+          "tolerance": "Toleranz",
+          "night_start": "Nacht-Start",
+          "morning_boost_start": "Tag-Start / Morgen-Boost Start",
+          "morning_boost_end": "Morgen-Boost Ende",
+          "vacation_enabled": "Urlaubsmodus aktiv",
+          "vacation_temperature": "Urlaubstemperatur",
+          "away_enabled": "Nicht Zuhause aktiv",
+          "outdoor_sensor": "Außentemperatursensor",
+          "outdoor_temp_cutoff_enabled": "Außentemperatur-Abschaltung aktiv",
+          "outdoor_temp_cutoff": "Heizung abschalten ab Außentemperatur",
+          "outdoor_min_room_temperature": "Mindest-Raumtemperatur bei Außensperre (0 = aus)",
+          "outdoor_cutoff_hysteresis": "Hysterese der Außentemperatur-Abschaltung"
+        }
+      },
+      "rooms": {
+        "title": "Räume bestätigen",
+        "description": "Es wurden {room_count} Räume erkannt{room_names}. Bestätige, um die Einrichtung abzuschließen.",
+        "data": {
+          "confirm": "Erkannte Räume übernehmen"
+        }
+      }
+    },
+    "error": {}
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Smartdome Heat Control",
+        "description": "Wähle aus, was du bearbeiten möchtest.",
+        "data": {
+          "action": "Bereich"
+        }
+      },
+      "global": {
+        "title": "Globale Einstellungen",
+        "description": "Wähle hier den **Steuertyp** für die Heizpumpensteuerung:\n\n- **Thermostat (Climate-Entity)** – Smartdome steuert einen Heizkreisregler oder ein Climate-Entity per Solltemperatur. Smartdome erhöht die Solltemperatur um den Boost-Delta-Wert, um den Heizkreis einzuschalten, und senkt sie wieder, um ihn abzuschalten. Ein optionaler Temperatursensor ermöglicht Monitoring.\n- **Smarter Schalter (Switch)** – Smartdome schaltet einen Switch direkt ein (Heizung an) oder aus (Heizung aus). Kein Temperatursensor notwendig, kein Boost-Delta erforderlich — die Steuerung erfolgt rein binär.\n\nFalls keine Heizpumpensteuerung vorhanden ist, einfach leer lassen.",
+        "data": {
+          "main_control_type": "Steuertyp Heizpumpensteuerung",
+          "main_thermostat": "Heizpumpensteuerung (Climate-Entity)",
+          "main_switch": "Heizpumpensteuerung (Switch-Entity)",
+          "main_sensor": "Temperatursensor Heizpumpensteuerung",
+          "boost_delta": "Boost-Delta",
+          "tolerance": "Toleranz",
+          "night_start": "Globale Nacht-Startzeit",
+          "morning_boost_start": "Globale Tag-Startzeit",
+          "morning_boost_end": "Morgen-Boost Ende",
+          "vacation_enabled": "Urlaubsmodus aktiv",
+          "vacation_temperature": "Urlaubstemperatur",
+          "away_enabled": "Nicht Zuhause aktiv",
+          "outdoor_sensor": "Außentemperatursensor",
+          "outdoor_temp_cutoff_enabled": "Außentemperatur-Abschaltung aktiv",
+          "outdoor_temp_cutoff": "Heizung abschalten ab Außentemperatur",
+          "outdoor_min_room_temperature": "Mindest-Raumtemperatur bei Außensperre (0 = aus)",
+          "outdoor_cutoff_hysteresis": "Hysterese der Außentemperatur-Abschaltung"
+        }
+      },
+      "rooms_list": {
+        "title": "Räume verwalten",
+        "description": "Wähle einen Raum zum Bearbeiten oder lege einen neuen an.",
+        "data": {
+          "room_action": "Raum"
+        }
+      },
+      "edit_room": {
+        "title": "Raum bearbeiten",
+        "description": "Bearbeite Heizkörperventil, Raumtemperatursensor und Zieltemperaturen dieses Raums.\n\n**Kein smartes Heizkörperventil vorhanden?** Lass das Feld leer — der Raum arbeitet dann im **Sensor-only Modus**: Er trägt zum Heiz-Signal des Zentralreglers bei, kann aber nicht individuell gesteuert werden.",
+        "data": {
+          "label": "Bezeichnung",
+          "thermostat": "Heizkörperventil",
+          "sensor": "Raumtemperatursensor",
+          "target_day": "Zieltemperatur Tag",
+          "target_night": "Zieltemperatur Nacht",
+          "away_temperature": "Away-Temperatur",
+          "day_start": "Tag-Start",
+          "night_start": "Nacht-Start",
+          "enabled": "Raum aktiv",
+          "delete_room": "Raum löschen",
+          "window_sensor": "Fensterkontakt",
+          "control_profile": "Thermostat-Regelprofil"
+        }
+      },
+      "add_room": {
+        "title": "Raum hinzufügen",
+        "description": "Lege einen neuen Raum manuell an.\n\n**Kein smartes Heizkörperventil vorhanden?** Lass das Feld leer — der Raum arbeitet dann im **Sensor-only Modus**: Er trägt zum Heiz-Signal des Zentralreglers bei, kann aber nicht individuell gesteuert werden.",
+        "data": {
+          "label": "Bezeichnung",
+          "thermostat": "Heizkörperventil",
+          "sensor": "Raumtemperatursensor",
+          "target_day": "Zieltemperatur Tag",
+          "target_night": "Zieltemperatur Nacht",
+          "away_temperature": "Away-Temperatur",
+          "day_start": "Tag-Start",
+          "night_start": "Nacht-Start",
+          "enabled": "Raum aktiv",
+          "window_sensor": "Fensterkontakt",
+          "control_profile": "Thermostat-Regelprofil"
+        }
+      }
+    },
+    "error": {}
+  },
+  "selector": {
+    "action": {
+      "options": {
+        "global": "⚙️ Globale Einstellungen",
+        "rooms": "🏠 Räume verwalten",
+        "discover": "🔎 Räume neu erkennen"
+      }
+    },
+    "control_profile": {
+      "options": {
+        "standard": "Standard-Thermostat",
+        "self_regulating": "Selbst regelndes Thermostat (z.B. Homematic OCCU)"
+      }
+    },
+    "main_control_type": {
+      "options": {
+        "thermostat": "Thermostat",
+        "switch": "Smarter Schalter (Switch)"
+      }
+    }
+  }
+}
