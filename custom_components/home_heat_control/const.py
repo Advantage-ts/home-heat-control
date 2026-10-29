@@ -9,7 +9,7 @@ DATA_ENABLED = "enabled"
 # damit Entities (z.B. sensor.py) sich ohne Polling aktualisieren können.
 SIGNAL_ROOM_STATE_UPDATED = f"{DOMAIN}_room_state_updated"
 
-PLATFORMS: list[str] = ["switch", "number", "select", "sensor", "climate", "binary_sensor"]
+PLATFORMS: list[str] = ["switch", "number", "select", "sensor", "climate", "binary_sensor", "button"]
 
 # Services
 SERVICE_UPDATE_CONFIG = "update_config"
@@ -260,3 +260,9 @@ DEFAULT_BOILER_MIN_OFF_MINUTES = 3
 
 SIGNAL_DECISIONS_UPDATED = f"{DOMAIN}_decisions_updated"
 DECISION_LOG_SIZE = 40
+
+# Room boost: one press raises a room's target for a while.
+CONF_ROOM_BOOST_AMOUNT = "room_boost_amount"
+DEFAULT_ROOM_BOOST_AMOUNT = 2.0
+CONF_ROOM_BOOST_MINUTES = "room_boost_minutes"
+DEFAULT_ROOM_BOOST_MINUTES = 60

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.components.number import NumberEntity
+from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
@@ -11,6 +11,10 @@ from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
+    CONF_ROOM_BOOST_AMOUNT,
+    CONF_ROOM_BOOST_MINUTES,
+    DEFAULT_ROOM_BOOST_AMOUNT,
+    DEFAULT_ROOM_BOOST_MINUTES,
     CONF_VACATION_TEMPERATURE,
     DATA_CONTROLLER,
     DATA_ENABLED,
@@ -31,7 +35,19 @@ async def async_setup_entry(
 ) -> None:
     """Number-Entities für einen Config Entry anlegen."""
     async_add_entities(
-        [SmartHeatingVacationTemperatureNumber(hass, entry)],
+        [
+            SmartHeatingVacationTemperatureNumber(hass, entry),
+            ConfigNumber(
+                hass, entry, CONF_ROOM_BOOST_AMOUNT, DEFAULT_ROOM_BOOST_AMOUNT,
+                name="Boost amount", icon="mdi:thermometer-plus",
+                minimum=0.5, maximum=5.0, step=0.5, unit=UnitOfTemperature.CELSIUS,
+            ),
+            ConfigNumber(
+                hass, entry, CONF_ROOM_BOOST_MINUTES, DEFAULT_ROOM_BOOST_MINUTES,
+                name="Boost time", icon="mdi:timer-outline",
+                minimum=15, maximum=240, step=15, unit="min",
+            ),
+        ],
         True,
     )
 
@@ -122,4 +138,44 @@ class SmartHeatingVacationTemperatureNumber(NumberEntity):
             float(value),
         )
 
+        self.async_write_ha_state()
+
+
+class ConfigNumber(SmartHeatingVacationTemperatureNumber):
+    """A box for one numeric setting, saved straight into the config."""
+
+    _attr_mode = NumberMode.BOX
+    _attr_entity_category = None
+
+    def __init__(
+        self, hass, entry, key, default, *, name, icon, minimum, maximum, step, unit
+    ) -> None:
+        super().__init__(hass, entry)
+        self._key = key
+        self._default = default
+        self._attr_name = name
+        self._attr_icon = icon
+        self._attr_native_min_value = minimum
+        self._attr_native_max_value = maximum
+        self._attr_native_step = step
+        self._attr_native_unit_of_measurement = unit
+        self._attr_unique_id = f"{entry.entry_id}_{key}"
+
+    @property
+    def native_value(self) -> float:
+        return float(self._get_config().get(self._key, self._default))
+
+    async def async_set_native_value(self, value: float) -> None:
+        entry_data = self._get_entry_data()
+        if entry_data is None:
+            return
+        config = self._get_config()
+        config[self._key] = float(value)
+        entry_data["config"] = config
+        self.hass.config_entries.async_update_entry(self._entry, data=config)
+        controller = entry_data.get(DATA_CONTROLLER)
+        if controller is not None:
+            # Only the setting changes, so skip the full controller reset.
+            controller.config[self._key] = float(value)
+        self._push_state(config)
         self.async_write_ha_state()

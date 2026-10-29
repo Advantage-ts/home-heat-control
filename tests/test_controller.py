@@ -288,3 +288,66 @@ async def test_update_room_rejects_unknown_room(hass, calls):
             DOMAIN, "update_room", {"room_id": "workshop", "settings": {"enabled": True}}, blocking=True
         )
     assert list(ctrl.config["rooms"]) == ["millie"]
+
+
+# ---------------------------------------------------------------- room boost
+
+async def test_boost_button_raises_target_and_calls_boiler(hass, calls):
+    set_world(hass, millie=21.0)  # at target, so not heating
+    ctrl = await setup(hass, base_config())
+    assert ctrl.boiler_demand is False
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.home_heat_millie_boost"}, blocking=True
+    )
+    await hass.async_block_till_done()
+    room = ctrl.config["rooms"]["millie"]
+    assert ctrl._effective_target_for_room(room) == 23.0
+    assert ctrl.boiler_demand is True
+    assert ctrl.boost_minutes_left("millie") == 60
+    # Second press cancels.
+    await hass.services.async_call(
+        "button", "press", {"entity_id": "button.home_heat_millie_boost"}, blocking=True
+    )
+    await hass.async_block_till_done()
+    assert ctrl._effective_target_for_room(room) == 21.0
+    assert ctrl.boost_minutes_left("millie") == 0
+
+
+async def test_boost_boxes_change_amount_and_time(hass, calls):
+    set_world(hass, millie=21.0)
+    ctrl = await setup(hass, base_config())
+    await hass.services.async_call(
+        "number", "set_value", {"entity_id": "number.home_heat_boost_amount", "value": 1.5}, blocking=True
+    )
+    await hass.services.async_call(
+        "number", "set_value", {"entity_id": "number.home_heat_boost_time", "value": 90}, blocking=True
+    )
+    await hass.services.async_call(DOMAIN, "boost_room", {"room_id": "millie"}, blocking=True)
+    await hass.async_block_till_done()
+    assert ctrl._effective_target_for_room(ctrl.config["rooms"]["millie"]) == 22.5
+    assert ctrl.boost_minutes_left("millie") == 90
+
+
+async def test_boost_respects_ceiling_and_expires(hass, calls):
+    set_world(hass, millie=21.0)
+    ctrl = await setup(hass, base_config(max_room_target=22.0))
+    await hass.services.async_call(
+        DOMAIN, "boost_room", {"room_id": "millie", "amount": 5, "minutes": 30}, blocking=True
+    )
+    room = ctrl.config["rooms"]["millie"]
+    assert ctrl._effective_target_for_room(room) == 22.0
+    until, amount = ctrl.room_boosts["millie"]
+    ctrl.room_boosts["millie"] = (until - 31 * 60, amount)
+    assert ctrl._effective_target_for_room(room) == 21.0
+    assert "millie" not in ctrl.room_boosts
+
+
+async def test_boost_survives_settings_change(hass, calls):
+    set_world(hass, millie=21.0)
+    ctrl = await setup(hass, base_config())
+    await hass.services.async_call(DOMAIN, "boost_room", {"room_id": "millie"}, blocking=True)
+    await hass.services.async_call(
+        DOMAIN, "update_room", {"room_id": "millie", "settings": {"thermostat_offset": 1}}, blocking=True
+    )
+    await hass.async_block_till_done()
+    assert ctrl.boost_minutes_left("millie") > 0

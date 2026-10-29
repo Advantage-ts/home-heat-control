@@ -38,6 +38,18 @@ It only changes when this repository changes. Smartdome updates never reach it.
 | `sensor.home_heat_decisions` | Latest decision, with the last 40 as an attribute |
 | `switch.home_heat_watch_only` | On: decide but do not act |
 | `climate.home_heat_<room>_heating` | One heating card per room |
+| `button.home_heat_<room>_boost` | Boost that room. Press again to cancel |
+| `number.home_heat_boost_amount` | How much a boost adds (0.5 to 5 °C, default 2) |
+| `number.home_heat_boost_time` | How long a boost lasts (15 to 240 min, default 60) |
+
+A boost adds the Boost amount to the room's current target for the Boost time,
+then ends by itself. It never goes above `max_room_target`, still pauses for open
+windows, and shows as `boost_minutes_left` on the room status sensor. Services:
+`home_heat_control.boost_room` (`room_id`, optional `amount` and `minutes`) and
+`home_heat_control.cancel_room_boost`. Boosts end if Home Assistant restarts.
+
+For a change to one room use `home_heat_control.update_room`. `update_config`
+replaces the whole room list.
 
 ## Hot water
 

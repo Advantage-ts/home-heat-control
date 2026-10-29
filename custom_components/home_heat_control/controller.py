@@ -24,7 +24,11 @@ from .const import (
     CONF_BOILER_MIN_ON_MINUTES,
     CONF_BOILER_REST_MINUTES,
     CONF_MAX_ROOM_TARGET,
+    CONF_ROOM_BOOST_AMOUNT,
+    CONF_ROOM_BOOST_MINUTES,
     CONF_WATCH_ONLY,
+    DEFAULT_ROOM_BOOST_AMOUNT,
+    DEFAULT_ROOM_BOOST_MINUTES,
     DECISION_LOG_SIZE,
     DEFAULT_BOILER_MAX_RUN_MINUTES,
     DEFAULT_BOILER_MIN_OFF_MINUTES,
@@ -229,6 +233,10 @@ class SmartHeatingController:
         self._boiler_changed_at: float = 0.0
         self._boiler_on_since: float | None = None
         self._boiler_rest_until: float = 0.0
+
+        # Room boosts: room_id -> (until timestamp, amount in C). Kept apart
+        # from the runtime state so saving settings never cancels a boost.
+        self.room_boosts: dict[str, tuple[float, float]] = {}
 
         from .hot_water import HotWaterController
 
@@ -811,10 +819,66 @@ class SmartHeatingController:
             return CONF_ROOM_TARGET_NIGHT
         return CONF_ROOM_TARGET_DAY
 
+    # ------------------------------------------------------------------
+    # Room boost
+    # ------------------------------------------------------------------
+
+    def _room_id_of(self, room: dict[str, Any]) -> str | None:
+        for room_id, candidate in (self.config.get(CONF_ROOMS) or {}).items():
+            if candidate is room:
+                return room_id
+        return None
+
+    def boost_minutes_left(self, room_id: str) -> int:
+        boost = self.room_boosts.get(room_id)
+        if not boost:
+            return 0
+        return max(0, int((boost[0] - dt_util.now().timestamp() + 59) // 60))
+
+    def _active_boost_amount(self, room_id: str | None) -> float:
+        if room_id is None or room_id not in self.room_boosts:
+            return 0.0
+        until, amount = self.room_boosts[room_id]
+        if dt_util.now().timestamp() >= until:
+            self.room_boosts.pop(room_id, None)
+            label = (self.config.get(CONF_ROOMS) or {}).get(room_id, {}).get("label", room_id)
+            self._record("boost", f"{label} boost finished")
+            return 0.0
+        return amount
+
+    def start_room_boost(
+        self, room_id: str, amount: float | None = None, minutes: float | None = None
+    ) -> None:
+        rooms = self.config.get(CONF_ROOMS) or {}
+        if room_id not in rooms:
+            raise ValueError(f"Unknown room {room_id}")
+        if amount is None:
+            amount = self._boiler_setting(CONF_ROOM_BOOST_AMOUNT, DEFAULT_ROOM_BOOST_AMOUNT)
+        if minutes is None:
+            minutes = self._boiler_setting(CONF_ROOM_BOOST_MINUTES, DEFAULT_ROOM_BOOST_MINUTES)
+        until = dt_util.now().timestamp() + float(minutes) * 60
+        self.room_boosts[room_id] = (until, float(amount))
+        label = rooms[room_id].get("label", room_id)
+        self._record("boost", f"{label} boost +{float(amount):g} C for {int(minutes)} minutes")
+        self._evaluate()
+
+    def cancel_room_boost(self, room_id: str) -> None:
+        if self.room_boosts.pop(room_id, None) is not None:
+            label = (self.config.get(CONF_ROOMS) or {}).get(room_id, {}).get("label", room_id)
+            self._record("boost", f"{label} boost cancelled")
+        self._evaluate()
+
+    def toggle_room_boost(self, room_id: str) -> None:
+        if self.boost_minutes_left(room_id) > 0:
+            self.cancel_room_boost(room_id)
+        else:
+            self.start_room_boost(room_id)
+
     def _effective_target_for_room(self, room: dict[str, Any]) -> float:
-        """Effective target, never above the configured ceiling."""
+        """Effective target including any boost, never above the ceiling."""
         ceiling = self._safe_float(self.config.get(CONF_MAX_ROOM_TARGET, DEFAULT_MAX_ROOM_TARGET))
         target = self._effective_target_for_room_uncapped(room)
+        target += self._active_boost_amount(self._room_id_of(room))
         if ceiling is not None and target > ceiling:
             return ceiling
         return target

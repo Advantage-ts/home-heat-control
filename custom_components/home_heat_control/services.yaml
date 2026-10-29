@@ -125,3 +125,44 @@ update_room:
       example: '{"thermostat_offset": 1}'
       selector:
         object:
+
+boost_room:
+  name: Boost a room
+  description: Raise one room's target for a while. Leave amount or minutes out to use the Boost amount and Boost time boxes.
+  fields:
+    room_id:
+      name: Room id
+      required: true
+      example: millie
+      selector:
+        text:
+    amount:
+      name: Amount
+      required: false
+      example: 2
+      selector:
+        number:
+          min: 0.5
+          max: 5
+          step: 0.5
+          unit_of_measurement: "°C"
+    minutes:
+      name: Minutes
+      required: false
+      example: 60
+      selector:
+        number:
+          min: 5
+          max: 480
+          unit_of_measurement: min
+
+cancel_room_boost:
+  name: Cancel room boost
+  description: End a room boost early.
+  fields:
+    room_id:
+      name: Room id
+      required: true
+      example: millie
+      selector:
+        text:

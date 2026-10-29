@@ -718,6 +718,29 @@ def _async_register_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(DOMAIN, "hot_water_cancel_boost", handle_hot_water_cancel_boost)
 
+    async def handle_boost_room(call: ServiceCall) -> None:
+        for ctrl in _controllers():
+            ctrl.start_room_boost(call.data["room_id"], call.data.get("amount"), call.data.get("minutes"))
+
+    async def handle_cancel_room_boost(call: ServiceCall) -> None:
+        for ctrl in _controllers():
+            ctrl.cancel_room_boost(call.data["room_id"])
+
+    hass.services.async_register(
+        DOMAIN,
+        "boost_room",
+        handle_boost_room,
+        schema=vol.Schema({
+            vol.Required("room_id"): str,
+            vol.Optional("amount"): vol.All(vol.Coerce(float), vol.Range(min=0.5, max=5)),
+            vol.Optional("minutes"): vol.All(vol.Coerce(float), vol.Range(min=5, max=480)),
+        }),
+    )
+    hass.services.async_register(
+        DOMAIN, "cancel_room_boost", handle_cancel_room_boost,
+        schema=vol.Schema({vol.Required("room_id"): str}),
+    )
+
     hass.data[DOMAIN]["_services_registered"] = True
 
 
