@@ -669,6 +669,34 @@ def _async_register_services(hass: HomeAssistant) -> None:
     )
     hass.services.async_register(DOMAIN, SERVICE_RELOAD, handle_reload)
 
+    async def handle_update_room(call: ServiceCall) -> None:
+        """Change some settings of one existing room, keeping everything else."""
+        target_entry = _get_single_entry(hass)
+        if target_entry is None:
+            _LOGGER.warning("No config entry found for update_room")
+            return
+        data = hass.data[DOMAIN][target_entry.entry_id]
+        current_cfg = dict(data["config"])
+        rooms = {k: dict(v) for k, v in current_cfg.get(CONF_ROOMS, {}).items()}
+        room_id = call.data["room_id"]
+        if room_id not in rooms:
+            raise vol.Invalid(f"Unknown room '{room_id}'. Known rooms: {', '.join(rooms)}")
+        rooms[room_id].update(call.data["settings"])
+        current_cfg[CONF_ROOMS] = rooms
+        current_cfg = _normalize_config(current_cfg)
+        hass.config_entries.async_update_entry(target_entry, data=current_cfg)
+        data["config"] = current_cfg
+        controller = data[DATA_CONTROLLER]
+        controller.update_config(current_cfg)
+        _push_state(hass, current_cfg)
+
+    hass.services.async_register(
+        DOMAIN,
+        "update_room",
+        handle_update_room,
+        schema=vol.Schema({vol.Required("room_id"): str, vol.Required("settings"): dict}),
+    )
+
     def _controllers():
         for key, value in hass.data.get(DOMAIN, {}).items():
             if not key.startswith("_") and isinstance(value, dict) and DATA_CONTROLLER in value:

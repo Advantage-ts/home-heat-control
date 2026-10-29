@@ -263,3 +263,28 @@ async def test_hot_water_sensor_lost_turns_off(hass, calls):
     await hass.async_block_till_done()
     assert ctrl.hot_water.demand is False
     assert hw_calls(calls)[-1] == "turn_off"
+
+
+async def test_update_room_keeps_other_rooms(hass, calls):
+    set_world(hass, millie=22.0)
+    cfg = base_config()
+    cfg["rooms"]["office"] = room("Office", "sensor.office_temp", "climate.office_radiator")
+    ctrl = await setup(hass, cfg)
+    await hass.services.async_call(
+        DOMAIN, "update_room", {"room_id": "millie", "settings": {"thermostat_offset": 1.5}}, blocking=True
+    )
+    await hass.async_block_till_done()
+    rooms = ctrl.config["rooms"]
+    assert set(rooms) == {"millie", "office"}
+    assert rooms["millie"]["thermostat_offset"] == 1.5
+    assert rooms["millie"]["sensor"] == "sensor.millie_temp"
+
+
+async def test_update_room_rejects_unknown_room(hass, calls):
+    set_world(hass, millie=22.0)
+    ctrl = await setup(hass, base_config())
+    with pytest.raises(Exception):
+        await hass.services.async_call(
+            DOMAIN, "update_room", {"room_id": "workshop", "settings": {"enabled": True}}, blocking=True
+        )
+    assert list(ctrl.config["rooms"]) == ["millie"]

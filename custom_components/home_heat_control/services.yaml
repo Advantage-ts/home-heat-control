@@ -107,3 +107,21 @@ hot_water_boost:
 hot_water_cancel_boost:
   name: Cancel hot water boost
   description: Stop a running hot water boost.
+
+update_room:
+  name: Update one room
+  description: Change some settings of one existing room and keep all its other settings. Use this instead of update_config for single-room changes, because update_config replaces the whole room list.
+  fields:
+    room_id:
+      name: Room id
+      required: true
+      example: bedroom
+      selector:
+        text:
+    settings:
+      name: Settings
+      description: Only the settings to change, for example thermostat_offset or target_day.
+      required: true
+      example: '{"thermostat_offset": 1}'
+      selector:
+        object:
