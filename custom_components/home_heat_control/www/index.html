@@ -1376,6 +1376,37 @@
               <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_hot_water_maximum" type="number" min="45" max="70" step="0.5" /></div>
           </div>
         </section>
+        <section class="card" id="immersionCard">
+          <h2>Immersion heater</h2>
+          <div id="imStatus" class="hw-status">Loading …</div>
+          <div class="toggle"><div class="toggle-text"><strong>Immersion control</strong><span>Off: Home Heat Control leaves the immersion alone.</span></div>
+            <input type="checkbox" class="im-flag" data-switch-entity="switch.home_heat_immersion_control" /></div>
+          <button id="imBoostBtn" type="button" class="success" style="width:100%;margin:10px 0 4px;">Boost immersion</button>
+          <div class="settings-group">
+            <div class="settings-group-label">Daily window</div>
+            <div class="toggle"><div class="toggle-text"><strong>Window start</strong><span>Heats in this window if the tank is cool.</span></div>
+              <input class="im-time" data-time-entity="time.home_heat_immersion_window_start" type="time" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Window end</strong><span>Stops at the end of the window.</span></div>
+              <input class="im-time" data-time-entity="time.home_heat_immersion_window_end" type="time" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Start below</strong><span>Only heats if the tank is below this.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_immersion_start_below" type="number" min="30" max="65" step="0.5" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Stop at</strong><span>Always stops at this temperature.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_immersion_stop_at" type="number" min="40" max="70" step="0.5" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Boost time (min)</strong><span>Longest an immersion boost can run.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_immersion_boost_time" type="number" min="15" max="240" step="15" /></div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-group-label">Solar surplus</div>
+            <div class="toggle"><div class="toggle-text"><strong>Use spare solar</strong><span id="imSolarHint">Needs the inverter in Home Assistant first.</span></div>
+              <input type="checkbox" class="im-flag" data-switch-entity="switch.home_heat_immersion_solar_surplus" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Start below</strong><span>Only uses spare solar if the tank is below this.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_immersion_solar_start_below" type="number" min="30" max="65" step="0.5" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Minimum export (W)</strong><span>Spare power needed before it switches on.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_immersion_solar_minimum_export" type="number" min="500" max="6000" step="100" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Battery at least (%)</strong><span>Waits until the battery is this full.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_immersion_solar_battery_minimum" type="number" min="0" max="100" step="5" /></div>
+          </div>
+        </section>
       </div>
 
       <section class="card rooms-card">

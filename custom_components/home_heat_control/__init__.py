@@ -217,6 +217,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def _start_all() -> None:
         await controller.async_start()
         await controller.hot_water.async_start()
+        await controller.immersion.async_start()
 
     if hass.is_running:
         await _start_all()
@@ -726,6 +727,22 @@ def _async_register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema({vol.Optional("minutes"): vol.All(vol.Coerce(float), vol.Range(min=1, max=180))}),
     )
     hass.services.async_register(DOMAIN, "hot_water_cancel_boost", handle_hot_water_cancel_boost)
+
+    async def handle_immersion_boost(call: ServiceCall) -> None:
+        for ctrl in _controllers():
+            ctrl.immersion.start_boost(call.data.get("minutes"))
+
+    async def handle_immersion_cancel_boost(call: ServiceCall) -> None:
+        for ctrl in _controllers():
+            ctrl.immersion.cancel_boost()
+
+    hass.services.async_register(
+        DOMAIN,
+        "immersion_boost",
+        handle_immersion_boost,
+        schema=vol.Schema({vol.Optional("minutes"): vol.All(vol.Coerce(float), vol.Range(min=1, max=240))}),
+    )
+    hass.services.async_register(DOMAIN, "immersion_cancel_boost", handle_immersion_cancel_boost)
 
     async def handle_boost_room(call: ServiceCall) -> None:
         for ctrl in _controllers():

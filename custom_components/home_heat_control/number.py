@@ -48,6 +48,7 @@ async def async_setup_entry(
                 minimum=15, maximum=240, step=15, unit="min",
             ),
             *hot_water_numbers(hass, entry),
+            *immersion_numbers(hass, entry),
         ],
         True,
     )
@@ -218,10 +219,16 @@ def hot_water_numbers(hass, entry):
 
 
 class HotWaterNumber(SmartHeatingVacationTemperatureNumber):
-    """One hot water setting, kept in the hot_water part of the config."""
+    """One setting kept in a section of the config (hot water by default)."""
 
     _attr_mode = NumberMode.BOX
     _attr_entity_category = None
+    SECTION = CONF_HOT_WATER
+    DEFAULTS = HOT_WATER_DEFAULTS
+    ORDER = HOT_WATER_ORDER
+    LABELS = HOT_WATER_LABELS
+    UID_PREFIX = "hot_water"
+    CONTROLLER_ATTR = "hot_water"
 
     def __init__(self, hass, entry, key, name, icon, minimum, maximum, step, unit) -> None:
         super().__init__(hass, entry)
@@ -232,11 +239,11 @@ class HotWaterNumber(SmartHeatingVacationTemperatureNumber):
         self._attr_native_max_value = maximum
         self._attr_native_step = step
         self._attr_native_unit_of_measurement = unit
-        self._attr_unique_id = f"{entry.entry_id}_hot_water_{key}"
+        self._attr_unique_id = f"{entry.entry_id}_{self.UID_PREFIX}_{key}"
 
     def _hot_water(self) -> dict:
-        merged = dict(HOT_WATER_DEFAULTS)
-        merged.update(self._get_config().get(CONF_HOT_WATER) or {})
+        merged = dict(self.DEFAULTS)
+        merged.update(self._get_config().get(self.SECTION) or {})
         return merged
 
     @property
@@ -249,21 +256,52 @@ class HotWaterNumber(SmartHeatingVacationTemperatureNumber):
             return
         proposed = self._hot_water()
         proposed[self._key] = float(value)
-        for low, high in HOT_WATER_ORDER:
+        for low, high in self.ORDER:
             if float(proposed[low]) >= float(proposed[high]):
                 raise ServiceValidationError(
-                    f"{HOT_WATER_LABELS[low]} ({float(proposed[low]):g}) must be lower than "
-                    f"{HOT_WATER_LABELS[high]} ({float(proposed[high]):g})."
+                    f"{self.LABELS[low]} ({float(proposed[low]):g}) must be lower than "
+                    f"{self.LABELS[high]} ({float(proposed[high]):g})."
                 )
         config = self._get_config()
-        hot_water = dict(config.get(CONF_HOT_WATER) or {})
-        hot_water[self._key] = float(value)
-        config[CONF_HOT_WATER] = hot_water
+        section = dict(config.get(self.SECTION) or {})
+        section[self._key] = float(value)
+        config[self.SECTION] = section
         entry_data["config"] = config
         self.hass.config_entries.async_update_entry(self._entry, data=config)
         controller = entry_data.get(DATA_CONTROLLER)
         if controller is not None:
-            controller.config[CONF_HOT_WATER] = hot_water
-            controller.hot_water.evaluate()
+            controller.config[self.SECTION] = section
+            getattr(controller, self.CONTROLLER_ATTR).evaluate()
         self._push_state(config)
         self.async_write_ha_state()
+
+
+# ---------------------------------------------------------------------------
+# Immersion boxes
+# ---------------------------------------------------------------------------
+
+from .immersion import CONF_IMMERSION, IMMERSION_DEFAULTS  # noqa: E402
+
+IMMERSION_BOXES = [
+    ("start_below", "Immersion start below", "mdi:water-thermometer-outline", 30, 65, 0.5, UnitOfTemperature.CELSIUS),
+    ("stop_at", "Immersion stop at", "mdi:water-thermometer", 40, 70, 0.5, UnitOfTemperature.CELSIUS),
+    ("boost_minutes", "Immersion boost time", "mdi:timer-outline", 15, 240, 15, "min"),
+    ("solar_start_below", "Immersion solar start below", "mdi:solar-power", 30, 65, 0.5, UnitOfTemperature.CELSIUS),
+    ("solar_min_export_w", "Immersion solar minimum export", "mdi:transmission-tower-export", 500, 6000, 100, "W"),
+    ("solar_battery_min", "Immersion solar battery minimum", "mdi:battery-high", 0, 100, 5, "%"),
+]
+IMMERSION_ORDER = [("start_below", "stop_at"), ("solar_start_below", "stop_at")]
+IMMERSION_LABELS = {key: name for key, name, *_ in IMMERSION_BOXES}
+
+
+class ImmersionNumber(HotWaterNumber):
+    SECTION = CONF_IMMERSION
+    DEFAULTS = IMMERSION_DEFAULTS
+    ORDER = IMMERSION_ORDER
+    LABELS = IMMERSION_LABELS
+    UID_PREFIX = "immersion"
+    CONTROLLER_ATTR = "immersion"
+
+
+def immersion_numbers(hass, entry):
+    return [ImmersionNumber(hass, entry, *box) for box in IMMERSION_BOXES]

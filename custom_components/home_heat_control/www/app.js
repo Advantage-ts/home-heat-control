@@ -2848,6 +2848,7 @@ async function refreshAll() {
 // ─── Hot water ───────────────────────────────────────────────────────────────
 const SERVER_OWNED_KEYS = [
   "hot_water",
+  "immersion",
   "watch_only",
   "max_room_target",
   "room_boost_amount",
@@ -2861,15 +2862,126 @@ const SERVER_OWNED_KEYS = [
 const HW_DEMAND = "binary_sensor.home_heat_hot_water_demand";
 const HW_TANK = "sensor.hot_water_tank_temperature";
 
+const IM_DEMAND = "binary_sensor.home_heat_immersion_demand";
+
 function isHotWaterEntity(entityId) {
   return (
     entityId === HW_DEMAND ||
     entityId === HW_TANK ||
-    entityId.startsWith("number.home_heat_hot_water_")
+    entityId === IM_DEMAND ||
+    entityId.startsWith("number.home_heat_hot_water_") ||
+    entityId.startsWith("number.home_heat_immersion_") ||
+    entityId.startsWith("time.home_heat_immersion_") ||
+    entityId.startsWith("switch.home_heat_immersion_") ||
+    entityId === "sensor.immersion_heater_power"
   );
 }
 
+function renderImmersion() {
+  const card = document.getElementById("immersionCard");
+  if (!card) return;
+  const demand = findState(IM_DEMAND);
+  const statusEl = document.getElementById("imStatus");
+  const boostBtn = document.getElementById("imBoostBtn");
+  if (!demand) {
+    statusEl.textContent = "Immersion control is not available.";
+    boostBtn.disabled = true;
+    return;
+  }
+  const a = demand.attributes || {};
+  const power = Number(a.power);
+  const powerText = Number.isFinite(power) ? `${Math.round(power)} W` : "no power reading";
+  const tank = Number(a.tank_temperature);
+  const tankText = Number.isFinite(tank) ? `${tank.toFixed(1)} °C` : "no reading";
+  const left = Number(a.boost_minutes_left) || 0;
+  statusEl.innerHTML =
+    `<strong>Tank ${escapeHtml(tankText)}</strong> · ` +
+    (demand.state === "on" ? '<span class="hw-on">On</span>' : "Off") +
+    ` · drawing ${escapeHtml(powerText)} <span>(${escapeHtml(a.reason || "")})</span>` +
+    (demand.state === "on" && Number.isFinite(power) && power < 50
+      ? "<br>The relay is on but the element is drawing no power. Its own thermostat may be satisfied." : "") +
+    (a.enabled === false ? "<br>Immersion control is switched off." : "") +
+    (a.watch_only ? "<br>Watch only: decisions are not being sent." : "");
+  boostBtn.disabled = a.enabled === false;
+  boostBtn.textContent = left > 0 ? `Cancel immersion boost (${left} min left)` : "Boost immersion";
+  boostBtn.dataset.boosting = left > 0 ? "1" : "";
+
+  card.querySelectorAll(".im-flag").forEach((box) => {
+    const st = findState(box.dataset.switchEntity);
+    if (st && box.dataset.pending !== "1") box.checked = st.state === "on";
+  });
+  card.querySelectorAll(".im-time").forEach((input) => {
+    if (document.activeElement === input || input.dataset.pending === "1") return;
+    const st = findState(input.dataset.timeEntity);
+    if (st && /^\d\d:\d\d/.test(st.state)) input.value = st.state.slice(0, 5);
+  });
+  card.querySelectorAll(".hw-input").forEach((input) => {
+    if (document.activeElement === input || input.dataset.pending === "1") return;
+    const st = findState(input.dataset.hwEntity);
+    if (st && st.state !== "unavailable" && st.state !== "unknown") {
+      input.value = String(Number(Number(st.state).toFixed(1)));
+    }
+  });
+}
+
+function bindImmersion() {
+  const card = document.getElementById("immersionCard");
+  if (!card) return;
+  card.querySelectorAll(".hw-input").forEach((input) => {
+    let timer = null;
+    input.addEventListener("change", () => {
+      input.dataset.pending = "1";
+      clearTimeout(timer);
+      timer = setTimeout(() => setHotWaterValue(input), 700);
+    });
+  });
+  card.querySelectorAll(".im-flag").forEach((box) => {
+    box.addEventListener("change", async () => {
+      box.dataset.pending = "1";
+      try {
+        await callService("switch", box.checked ? "turn_on" : "turn_off", { entity_id: box.dataset.switchEntity });
+        setStatus("Immersion setting saved.", "ok");
+      } catch (error) {
+        setStatus(`Immersion setting not saved: ${error.message}`, "err");
+      } finally {
+        box.dataset.pending = "";
+        renderImmersion();
+      }
+    });
+  });
+  card.querySelectorAll(".im-time").forEach((input) => {
+    input.addEventListener("change", async () => {
+      if (!/^\d\d:\d\d$/.test(input.value)) return;
+      input.dataset.pending = "1";
+      try {
+        await callService("time", "set_value", { entity_id: input.dataset.timeEntity, time: `${input.value}:00` });
+        setStatus("Immersion window saved.", "ok");
+      } catch (error) {
+        setStatus(`Immersion window not saved: ${error.message}`, "err");
+      } finally {
+        input.dataset.pending = "";
+        renderImmersion();
+      }
+    });
+  });
+  document.getElementById("imBoostBtn").addEventListener("click", async (event) => {
+    const btn = event.currentTarget;
+    try {
+      if (btn.dataset.boosting) {
+        await callService(DOMAIN, "immersion_cancel_boost", {});
+        setStatus("Immersion boost cancelled.", "ok");
+      } else {
+        await callService(DOMAIN, "immersion_boost", {});
+        setStatus("Immersion boost started.", "ok");
+      }
+    } catch (error) {
+      setStatus(`Immersion boost failed: ${error.message}`, "err");
+    }
+  });
+}
+
 function renderHotWater() {
+  renderImmersion();
   const card = document.getElementById("hotWaterCard");
   if (!card) return;
   const demand = findState(HW_DEMAND);
@@ -2912,9 +3024,9 @@ async function setHotWaterValue(input) {
   input.dataset.pending = "1";
   try {
     await callService("number", "set_value", { entity_id: entityId, value });
-    setStatus("Hot water setting saved.", "ok");
+    setStatus("Setting saved.", "ok");
   } catch (error) {
-    setStatus(`Hot water setting not saved: ${error.message}`, "err");
+    setStatus(`Setting not saved: ${error.message}`, "err");
   } finally {
     input.dataset.pending = "";
     renderHotWater();
@@ -3510,6 +3622,7 @@ async function init() {
   applyTranslations();
   bindEvents();
   bindHotWater();
+  bindImmersion();
   enableEditTracking();
   renderVersion();
   setButtonsDisabled(true);

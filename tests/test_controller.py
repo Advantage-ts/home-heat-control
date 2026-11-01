@@ -426,3 +426,109 @@ async def test_hot_water_boxes_reject_bad_order(hass, calls):
             "number", "set_value", {"entity_id": "number.home_heat_hot_water_top_up_below", "value": 56}, blocking=True
         )  # above top-up until 55
     assert ctrl.hot_water.cfg["target"] == 58.0
+
+
+# ---------------------------------------------------------------- immersion
+
+IMM = "switch.immersion_heater"
+
+
+def imm_cfg(**im):
+    return base_config(immersion={"enabled": True, "min_switch_seconds": 0, **im})
+
+
+def imm_calls(calls):
+    return [c.service for c in calls if c.domain == "switch" and c.data.get("entity_id") == IMM]
+
+
+def at(hass, hhmm):
+    from unittest.mock import patch
+    h, m = map(int, hhmm.split(":"))
+    fake = dt_util.now().replace(hour=h, minute=m, second=0, microsecond=0)
+    return patch("custom_components.home_heat_control.immersion.dt_util.now", return_value=fake)
+
+
+async def test_immersion_disabled_does_nothing(hass, calls):
+    set_world(hass, millie=22.0, tank=40)
+    hass.states.async_set(IMM, "off")
+    with at(hass, "12:10"):
+        await setup(hass, base_config())
+    assert imm_calls(calls) == []
+
+
+async def test_immersion_window_heats_when_cool_and_stops_at_limit(hass, calls):
+    set_world(hass, millie=22.0, tank=50)
+    hass.states.async_set(IMM, "off")
+    with at(hass, "12:10"):
+        ctrl = await setup(hass, imm_cfg())
+        assert ctrl.immersion.demand and ctrl.immersion.reason == "daily window"
+        hass.states.async_set("sensor.hot_water_tank_temperature", "59.2")
+        await hass.async_block_till_done()
+        assert not ctrl.immersion.demand
+    assert imm_calls(calls) == ["turn_on", "turn_off"]
+
+
+async def test_immersion_window_skips_warm_tank_and_ends_on_time(hass, calls):
+    set_world(hass, millie=22.0, tank=56)
+    hass.states.async_set(IMM, "off")
+    with at(hass, "12:10"):
+        ctrl = await setup(hass, imm_cfg())
+        assert not ctrl.immersion.demand
+        hass.states.async_set("sensor.hot_water_tank_temperature", "50")
+        await hass.async_block_till_done()
+        assert ctrl.immersion.demand
+    with at(hass, "13:01"):
+        ctrl.immersion.evaluate()
+        assert not ctrl.immersion.demand
+
+
+async def test_immersion_boost_and_lost_sensor(hass, calls):
+    set_world(hass, millie=22.0, tank=50)
+    hass.states.async_set(IMM, "off")
+    ctrl = await setup(hass, imm_cfg(window_start="02:00", window_end="02:01"))
+    await hass.services.async_call(DOMAIN, "immersion_boost", {"minutes": 30}, blocking=True)
+    assert ctrl.immersion.demand and ctrl.immersion.reason == "boost"
+    assert hass.states.get("binary_sensor.home_heat_immersion_demand").attributes["boost_minutes_left"] == 30
+    hass.states.async_set("sensor.hot_water_tank_temperature", "unavailable")
+    await hass.async_block_till_done()
+    assert not ctrl.immersion.demand
+
+
+async def test_immersion_solar_surplus(hass, calls):
+    set_world(hass, millie=22.0, tank=45)
+    hass.states.async_set(IMM, "off")
+    hass.states.async_set("sensor.export", "3500")
+    hass.states.async_set("sensor.import", "0")
+    hass.states.async_set("sensor.battery", "99")
+    ctrl = await setup(hass, imm_cfg(
+        window_start="02:00", window_end="02:01", solar_enabled=True,
+        solar_export_sensor="sensor.export", solar_import_sensor="sensor.import",
+        solar_battery_sensor="sensor.battery", solar_on_minutes=0, solar_off_minutes=0,
+    ))
+    assert ctrl.immersion.demand and ctrl.immersion.reason == "solar surplus"
+    hass.states.async_set("sensor.import", "1500")  # now drawing from the grid
+    await hass.async_block_till_done()
+    assert not ctrl.immersion.demand
+
+
+async def test_immersion_solar_waits_for_full_battery(hass, calls):
+    set_world(hass, millie=22.0, tank=45)
+    hass.states.async_set("sensor.export", "3500")
+    hass.states.async_set("sensor.battery", "60")
+    ctrl = await setup(hass, imm_cfg(
+        window_start="02:00", window_end="02:01", solar_enabled=True,
+        solar_export_sensor="sensor.export", solar_battery_sensor="sensor.battery",
+        solar_on_minutes=0,
+    ))
+    assert not ctrl.immersion.demand
+
+
+async def test_immersion_entities_exist(hass, calls):
+    set_world(hass, millie=22.0, tank=50)
+    await setup(hass, base_config())
+    for e in ("switch.home_heat_immersion_control", "switch.home_heat_immersion_solar_surplus",
+              "time.home_heat_immersion_window_start", "time.home_heat_immersion_window_end",
+              "number.home_heat_immersion_start_below", "number.home_heat_immersion_stop_at",
+              "binary_sensor.home_heat_immersion_demand"):
+        assert hass.states.get(e) is not None, e
+    assert hass.states.get("time.home_heat_immersion_window_start").state == "11:59:00"

@@ -21,7 +21,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    async_add_entities([BoilerDemandSensor(hass, entry), HotWaterDemandSensor(hass, entry)], True)
+    async_add_entities([BoilerDemandSensor(hass, entry), HotWaterDemandSensor(hass, entry), ImmersionDemandSensor(hass, entry)], True)
 
 
 class BoilerDemandSensor(BinarySensorEntity):
@@ -103,5 +103,39 @@ class HotWaterDemandSensor(BoilerDemandSensor):
             "enabled": hw.enabled,
             "tank_temperature": hw._tank_temp(),
             "boost_minutes_left": boost_left,
+            "watch_only": controller.is_watch_only(),
+        }
+
+
+class ImmersionDemandSensor(BoilerDemandSensor):
+    """On when Home Heat Control wants the immersion heater on."""
+
+    _attr_name = "Immersion demand"
+    _attr_icon = "mdi:lightning-bolt"
+    _attr_device_class = BinarySensorDeviceClass.POWER
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        super().__init__(hass, entry)
+        self._attr_unique_id = f"{entry.entry_id}_immersion_demand"
+
+    @property
+    def is_on(self) -> bool | None:
+        controller = self._controller
+        return None if controller is None else controller.immersion.demand
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        controller = self._controller
+        if controller is None:
+            return {}
+        im = controller.immersion
+        return {
+            "reason": im.reason,
+            "enabled": im.enabled,
+            "solar_enabled": bool(im.cfg.get("solar_enabled")),
+            "power": im.power(),
+            "tank_temperature": im.tank_temp(),
+            "boost_minutes_left": im.boost_minutes_left(),
+            "relay": im.cfg.get("switch"),
             "watch_only": controller.is_watch_only(),
         }

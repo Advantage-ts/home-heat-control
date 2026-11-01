@@ -84,6 +84,27 @@ Services: `home_heat_control.hot_water_boost` (optional `minutes`) and
 
 The relay is switched off if the tank thermometer stops reporting.
 
+## Immersion heater
+
+Off by default. Switch on `switch.home_heat_immersion_control` to let Home Heat
+Control own `switch.immersion_heater` (turn off any automations that switch it).
+
+- **Daily window** (`time.home_heat_immersion_window_start` / `_end`, default
+  11:59 to 13:00): heats if the tank is below *start below* (55 °C) and keeps
+  going until *stop at* (59 °C) or the window ends.
+- **Boost**: `home_heat_control.immersion_boost` (optional `minutes`), or the
+  button in the panel. Stops at *stop at* or when the time runs out.
+- **Solar surplus** (`switch.home_heat_immersion_solar_surplus`, off): needs
+  `solar_export_sensor` (and ideally `solar_import_sensor`,
+  `solar_battery_sensor`) set in the `immersion` config. Starts after export
+  has been above the minimum for 5 minutes, the battery is full enough and the
+  tank is below *solar start below*; stops after 2 minutes of grid import above
+  200 W.
+- Safety: off with no tank reading, off at *stop at*, 120 minute run limit
+  with a 30 minute rest and an alert, and at least 2 minutes between switches.
+- `binary_sensor.home_heat_immersion_demand` shows the decision, reason, power
+  draw and tank temperature.
+
 ## Install
 
 HACS, Custom repositories, add this repository as an Integration, install, restart

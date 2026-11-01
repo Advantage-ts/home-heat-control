@@ -83,6 +83,14 @@ async def async_setup_entry(
             unique_suffix="watch_only",
             icon="mdi:eye-outline",
         ),
+        SectionFlagSwitch(
+            hass, entry, "immersion", "enabled", False,
+            "Immersion control", "mdi:water-boiler", "immersion",
+        ),
+        SectionFlagSwitch(
+            hass, entry, "immersion", "solar_enabled", False,
+            "Immersion solar surplus", "mdi:solar-power", "immersion",
+        ),
     ]
 
     for room_id, room in rooms.items():
@@ -357,3 +365,54 @@ class SmartdomeRoomAwaySwitch(SmartdomeRoomBaseSwitch):
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         self._apply_room_config_update(CONF_ROOM_AWAY_ENABLED, False)
+
+
+class SectionFlagSwitch(SwitchEntity):
+    """An on/off setting kept in a section of the config (immersion)."""
+
+    _attr_has_entity_name = True
+    _attr_should_poll = False
+
+    def __init__(self, hass, entry, section, key, default, name, icon, controller_attr) -> None:
+        self.hass = hass
+        self._entry = entry
+        self._section = section
+        self._key = key
+        self._default = default
+        self._controller_attr = controller_attr
+        self._attr_name = name
+        self._attr_icon = icon
+        self._attr_unique_id = f"{entry.entry_id}_{section}_{key}"
+        self._attr_device_info = hhc_device_info(entry)
+
+    def _entry_data(self):
+        return self.hass.data.get(DOMAIN, {}).get(self._entry.entry_id)
+
+    @property
+    def is_on(self) -> bool:
+        data = self._entry_data() or {}
+        section = (data.get("config") or {}).get(self._section) or {}
+        return bool(section.get(self._key, self._default))
+
+    async def _set(self, value: bool) -> None:
+        data = self._entry_data()
+        if data is None:
+            return
+        config = dict(data.get("config") or {})
+        section = dict(config.get(self._section) or {})
+        section[self._key] = value
+        config[self._section] = section
+        data["config"] = config
+        self.hass.config_entries.async_update_entry(self._entry, data=config)
+        controller = data.get(DATA_CONTROLLER)
+        if controller is not None:
+            controller.config[self._section] = section
+            getattr(controller, self._controller_attr).reconfigure()
+        self.hass.states.async_set(f"{DOMAIN}.config", "active", attributes=config)
+        self.async_write_ha_state()
+
+    async def async_turn_on(self, **kwargs) -> None:
+        await self._set(True)
+
+    async def async_turn_off(self, **kwargs) -> None:
+        await self._set(False)

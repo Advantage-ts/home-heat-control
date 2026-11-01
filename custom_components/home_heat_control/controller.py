@@ -245,6 +245,10 @@ class SmartHeatingController:
 
         self.hot_water = HotWaterController(hass, self)
 
+        from .immersion import ImmersionController
+
+        self.immersion = ImmersionController(hass, self)
+
         self._apply_config_defaults()
 
     async def async_start(self) -> None:
@@ -315,6 +319,7 @@ class SmartHeatingController:
         """Listener entfernen."""
         self._unsubscribe_all()
         self.hot_water.async_stop_listeners()
+        self.immersion.async_stop_listeners()
 
     def set_enabled(self, enabled: bool) -> None:
         """Controller aktivieren/deaktivieren."""
@@ -346,6 +351,7 @@ class SmartHeatingController:
 
         # Hot water runs whether or not room heating is enabled.
         self.hot_water.reconfigure()
+        self.immersion.reconfigure()
 
         if self._enabled:
             self.hass.async_create_task(self.async_start())
