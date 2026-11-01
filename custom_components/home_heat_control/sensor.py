@@ -103,6 +103,7 @@ class SmartdomeRoomStatusSensor(SensorEntity):
             "outdoor_minimum_active": status.get("outdoor_minimum_active"),
             "sensor_fault": status.get("sensor_fault"),
             "boost_minutes_left": controller.boost_minutes_left(self._room_id),
+            "sensor_readings": controller.room_sensor_readings(self._room_id),
         }
 
     async def async_added_to_hass(self) -> None:

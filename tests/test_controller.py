@@ -351,3 +351,44 @@ async def test_boost_survives_settings_change(hass, calls):
     )
     await hass.async_block_till_done()
     assert ctrl.boost_minutes_left("millie") > 0
+
+
+# ---------------------------------------------------------------- extra sensors
+
+async def test_extra_sensor_averaged(hass, calls):
+    set_world(hass, millie=21.0)
+    hass.states.async_set("sensor.dining_temp", "19.0")
+    cfg = base_config()
+    cfg["rooms"]["millie"]["extra_sensors"] = ["sensor.dining_temp"]
+    ctrl = await setup(hass, cfg)
+    room = ctrl.config["rooms"]["millie"]
+    assert ctrl._room_temp(room) == 20.0
+    # 20.0 is below 21 minus tolerance, so the room heats.
+    assert ctrl.boiler_demand is True
+    attrs = hass.states.get("sensor.home_heat_millie_status").attributes
+    assert attrs["sensor_readings"] == {"sensor.millie_temp": 21.0, "sensor.dining_temp": 19.0}
+
+
+async def test_extra_sensor_coldest_mode(hass, calls):
+    set_world(hass, millie=21.0)
+    hass.states.async_set("sensor.dining_temp", "19.0")
+    cfg = base_config()
+    cfg["rooms"]["millie"]["extra_sensors"] = ["sensor.dining_temp"]
+    cfg["rooms"]["millie"]["sensor_mode"] = "coldest"
+    ctrl = await setup(hass, cfg)
+    assert ctrl._room_temp(ctrl.config["rooms"]["millie"]) == 19.0
+
+
+async def test_one_sensor_lost_uses_the_other(hass, calls):
+    set_world(hass, millie=21.0)
+    hass.states.async_set("sensor.dining_temp", "19.0")
+    cfg = base_config()
+    cfg["rooms"]["millie"]["extra_sensors"] = ["sensor.dining_temp"]
+    ctrl = await setup(hass, cfg)
+    hass.states.async_set("sensor.millie_temp", "unavailable")
+    await hass.async_block_till_done()
+    assert ctrl._room_temp(ctrl.config["rooms"]["millie"]) == 19.0
+    hass.states.async_set("sensor.dining_temp", "2.0")  # implausible, but only reading left
+    await hass.async_block_till_done()
+    assert ctrl._room_temp(ctrl.config["rooms"]["millie"]) == 2.0
+    assert ctrl.boiler_demand is False  # still blocked as implausible

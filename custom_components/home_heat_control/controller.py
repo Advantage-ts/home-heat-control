@@ -25,6 +25,9 @@ from .const import (
     CONF_BOILER_REST_MINUTES,
     CONF_MAX_ROOM_TARGET,
     CONF_ROOM_BOOST_AMOUNT,
+    CONF_ROOM_EXTRA_SENSORS,
+    CONF_ROOM_SENSOR_MODE,
+    SENSOR_MODE_COLDEST,
     CONF_ROOM_BOOST_MINUTES,
     CONF_WATCH_ONLY,
     DEFAULT_ROOM_BOOST_AMOUNT,
@@ -275,8 +278,7 @@ class SmartHeatingController:
                     watch_entities.add(circuit_sensor)
 
         for room in self._active_rooms().values():
-            room_sensor = self._as_entity_id(room.get(CONF_ROOM_SENSOR))
-            if room_sensor:
+            for room_sensor in self._room_sensor_ids(room):
                 watch_entities.add(room_sensor)
 
             for ws in room.get(CONF_ROOM_WINDOW_SENSORS, []):
@@ -490,7 +492,41 @@ class SmartHeatingController:
             return self._safe_float(state.attributes.get("current_temperature"))
         return self._safe_float(state.state)
 
+    def _room_sensor_ids(self, room: dict[str, Any]) -> list[str]:
+        """Main room sensor first, then any extra sensors, without repeats."""
+        ids: list[str] = []
+        for candidate in [room.get(CONF_ROOM_SENSOR), *(room.get(CONF_ROOM_EXTRA_SENSORS) or [])]:
+            entity_id = self._as_entity_id(candidate)
+            if entity_id and entity_id not in ids:
+                ids.append(entity_id)
+        return ids
+
     def _room_temp(self, room: dict[str, Any]) -> float | None:
+        """Room temperature from all its thermometers.
+
+        Readings that are missing or outside the plausible range are left out,
+        so one failed sensor does not stop the room. Average by default, or
+        the coldest reading when sensor_mode is 'coldest'. None only when no
+        sensor has a usable reading.
+        """
+        ids = self._room_sensor_ids(room)
+        if len(ids) <= 1:
+            return self._room_temp_single(room)
+        readings = [self._get_state_float(entity_id) for entity_id in ids]
+        values = [v for v in readings if v is not None]
+        plausible = [v for v in values if ROOM_TEMP_PLAUSIBLE_MIN <= v <= ROOM_TEMP_PLAUSIBLE_MAX]
+        use = plausible or values
+        if not use:
+            return None
+        if room.get(CONF_ROOM_SENSOR_MODE) == SENSOR_MODE_COLDEST:
+            return min(use)
+        return round(sum(use) / len(use), 2)
+
+    def room_sensor_readings(self, room_id: str) -> dict[str, float | None]:
+        room = (self.config.get(CONF_ROOMS) or {}).get(room_id) or {}
+        return {e: self._get_state_float(e) for e in self._room_sensor_ids(room)}
+
+    def _room_temp_single(self, room: dict[str, Any]) -> float | None:
         """Raumtemperatur lesen."""
         return self._get_state_float(self._as_entity_id(room.get(CONF_ROOM_SENSOR)))
 
@@ -1470,7 +1506,7 @@ class SmartHeatingController:
             # Fehlt der Messwert eines eingetragenen Sensors länger als 5 min,
             # gilt der Raum als gestört und heizt nicht mehr (kein Dauer-Boost).
             # Räume ohne eingetragenen Sensor sind davon nicht betroffen.
-            if self._as_entity_id(room.get(CONF_ROOM_SENSOR)):
+            if self._room_sensor_ids(room):
                 missing_since = self._room_sensor_missing_since.setdefault(
                     room_id, now_ts
                 )

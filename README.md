@@ -48,6 +48,11 @@ windows, and shows as `boost_minutes_left` on the room status sensor. Services:
 `home_heat_control.boost_room` (`room_id`, optional `amount` and `minutes`) and
 `home_heat_control.cancel_room_boost`. Boosts end if Home Assistant restarts.
 
+A room can have extra thermometers in `extra_sensors` (a list), combined with
+its main `sensor`. `sensor_mode` is `average` (default) or `coldest`. A missing
+or implausible reading is left out, so one failed sensor does not stop the room.
+Each room status sensor lists every reading under `sensor_readings`.
+
 For a change to one room use `home_heat_control.update_room`. `update_config`
 replaces the whole room list.
 

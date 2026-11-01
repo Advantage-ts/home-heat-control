@@ -266,3 +266,10 @@ CONF_ROOM_BOOST_AMOUNT = "room_boost_amount"
 DEFAULT_ROOM_BOOST_AMOUNT = 2.0
 CONF_ROOM_BOOST_MINUTES = "room_boost_minutes"
 DEFAULT_ROOM_BOOST_MINUTES = 60
+
+# Extra thermometers for one room, combined with the main room sensor.
+CONF_ROOM_EXTRA_SENSORS = "extra_sensors"
+CONF_ROOM_SENSOR_MODE = "sensor_mode"
+SENSOR_MODE_AVERAGE = "average"
+SENSOR_MODE_COLDEST = "coldest"
+DEFAULT_ROOM_SENSOR_MODE = SENSOR_MODE_AVERAGE

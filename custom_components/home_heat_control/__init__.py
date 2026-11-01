@@ -373,6 +373,15 @@ def _normalize_rooms(rooms: Any) -> dict[str, dict[str, Any]]:
                 room.get(CONF_ROOM_SWITCH_MIN_OFF), DEFAULT_ROOM_SWITCH_MIN_OFF
             ),
             "sensor": room.get("sensor", ""),
+            "extra_sensors": [
+                s for s in (room.get("extra_sensors") or [])
+                if isinstance(s, str) and s
+            ],
+            "sensor_mode": (
+                room.get("sensor_mode")
+                if room.get("sensor_mode") in ("average", "coldest")
+                else "average"
+            ),
             "window_sensor": room.get("window_sensor", ""),
             CONF_ROOM_WINDOW_SENSORS: _normalize_window_sensors(room),
             "target_day": room.get("target_day", 21.0),
