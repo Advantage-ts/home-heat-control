@@ -47,6 +47,7 @@ async def async_setup_entry(
                 name="Boost time", icon="mdi:timer-outline",
                 minimum=15, maximum=240, step=15, unit="min",
             ),
+            *hot_water_numbers(hass, entry),
         ],
         True,
     )
@@ -177,5 +178,92 @@ class ConfigNumber(SmartHeatingVacationTemperatureNumber):
         if controller is not None:
             # Only the setting changes, so skip the full controller reset.
             controller.config[self._key] = float(value)
+        self._push_state(config)
+        self.async_write_ha_state()
+
+
+# ---------------------------------------------------------------------------
+# Hot water boxes
+# ---------------------------------------------------------------------------
+
+from homeassistant.exceptions import ServiceValidationError  # noqa: E402
+
+from .hot_water import CONF_HOT_WATER, HOT_WATER_DEFAULTS  # noqa: E402
+
+# key, name, icon, min, max, step, unit
+HOT_WATER_BOXES = [
+    ("target", "Hot water target", "mdi:water-thermometer", 40, 65, 0.5, UnitOfTemperature.CELSIUS),
+    ("restart_below", "Hot water restart below", "mdi:water-thermometer-outline", 35, 64, 0.5, UnitOfTemperature.CELSIUS),
+    ("topup_below", "Hot water top-up below", "mdi:water-alert", 30, 60, 0.5, UnitOfTemperature.CELSIUS),
+    ("topup_until", "Hot water top-up until", "mdi:water-check", 35, 65, 0.5, UnitOfTemperature.CELSIUS),
+    ("boost_target", "Hot water boost target", "mdi:water-boiler-alert", 40, 65, 0.5, UnitOfTemperature.CELSIUS),
+    ("boost_minutes", "Hot water boost time", "mdi:timer-outline", 15, 180, 15, "min"),
+    ("max_temp", "Hot water maximum", "mdi:thermometer-alert", 45, 70, 0.5, UnitOfTemperature.CELSIUS),
+]
+
+# Pairs that must stay in order: (lower key, higher key)
+HOT_WATER_ORDER = [
+    ("restart_below", "target"),
+    ("topup_below", "topup_until"),
+    ("target", "max_temp"),
+    ("topup_until", "max_temp"),
+    ("boost_target", "max_temp"),
+]
+
+HOT_WATER_LABELS = {key: name for key, name, *_ in HOT_WATER_BOXES}
+
+
+def hot_water_numbers(hass, entry):
+    return [HotWaterNumber(hass, entry, *box) for box in HOT_WATER_BOXES]
+
+
+class HotWaterNumber(SmartHeatingVacationTemperatureNumber):
+    """One hot water setting, kept in the hot_water part of the config."""
+
+    _attr_mode = NumberMode.BOX
+    _attr_entity_category = None
+
+    def __init__(self, hass, entry, key, name, icon, minimum, maximum, step, unit) -> None:
+        super().__init__(hass, entry)
+        self._key = key
+        self._attr_name = name
+        self._attr_icon = icon
+        self._attr_native_min_value = minimum
+        self._attr_native_max_value = maximum
+        self._attr_native_step = step
+        self._attr_native_unit_of_measurement = unit
+        self._attr_unique_id = f"{entry.entry_id}_hot_water_{key}"
+
+    def _hot_water(self) -> dict:
+        merged = dict(HOT_WATER_DEFAULTS)
+        merged.update(self._get_config().get(CONF_HOT_WATER) or {})
+        return merged
+
+    @property
+    def native_value(self) -> float:
+        return float(self._hot_water()[self._key])
+
+    async def async_set_native_value(self, value: float) -> None:
+        entry_data = self._get_entry_data()
+        if entry_data is None:
+            return
+        proposed = self._hot_water()
+        proposed[self._key] = float(value)
+        for low, high in HOT_WATER_ORDER:
+            if float(proposed[low]) >= float(proposed[high]):
+                raise ServiceValidationError(
+                    f"{HOT_WATER_LABELS[low]} ({float(proposed[low]):g}) must be lower than "
+                    f"{HOT_WATER_LABELS[high]} ({float(proposed[high]):g})."
+                )
+        config = self._get_config()
+        hot_water = dict(config.get(CONF_HOT_WATER) or {})
+        hot_water[self._key] = float(value)
+        config[CONF_HOT_WATER] = hot_water
+        entry_data["config"] = config
+        self.hass.config_entries.async_update_entry(self._entry, data=config)
+        controller = entry_data.get(DATA_CONTROLLER)
+        if controller is not None:
+            controller.config[CONF_HOT_WATER] = hot_water
+            controller.hot_water.evaluate()
         self._push_state(config)
         self.async_write_ha_state()

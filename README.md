@@ -74,6 +74,11 @@ match the automations it replaces:
 | `max_temp` | 62 | Never heats at or above this |
 | `max_run_minutes` / `rest_minutes` | 120 / 20 | Run limit |
 
+Most of these can also be changed from boxes: `number.home_heat_hot_water_target`,
+`_restart_below`, `_top_up_below`, `_top_up_until`, `_boost_target`, `_boost_time`
+and `_maximum`. A box refuses a value that would put the settings out of order,
+for example a target at or above the maximum.
+
 Services: `home_heat_control.hot_water_boost` (optional `minutes`) and
 `home_heat_control.hot_water_cancel_boost`.
 

@@ -392,3 +392,37 @@ async def test_one_sensor_lost_uses_the_other(hass, calls):
     await hass.async_block_till_done()
     assert ctrl._room_temp(ctrl.config["rooms"]["millie"]) == 2.0
     assert ctrl.boiler_demand is False  # still blocked as implausible
+
+
+# ---------------------------------------------------------------- hot water boxes
+
+async def test_hot_water_boxes_change_settings(hass, calls):
+    set_world(hass, millie=22.0, tank=56.5, schedule="on")
+    ctrl = await setup(hass, hw_cfg(min_switch_seconds=0))
+    assert hass.states.get("number.home_heat_hot_water_target").state == "58.0"
+    assert ctrl.hot_water.demand is True  # 56.5 below restart_below 57
+    await hass.services.async_call(
+        "number", "set_value", {"entity_id": "number.home_heat_hot_water_restart_below", "value": 55}, blocking=True
+    )
+    await hass.services.async_call(
+        "number", "set_value", {"entity_id": "number.home_heat_hot_water_target", "value": 56}, blocking=True
+    )
+    await hass.async_block_till_done()
+    assert ctrl.hot_water.cfg["target"] == 56.0
+    assert ctrl.hot_water.demand is False  # 56.5 already above the new target
+    assert ctrl.config["hot_water"]["enabled"] is True  # other settings kept
+
+
+async def test_hot_water_boxes_reject_bad_order(hass, calls):
+    set_world(hass, millie=22.0, tank=50, schedule="on")
+    ctrl = await setup(hass, hw_cfg())
+    from homeassistant.exceptions import ServiceValidationError
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            "number", "set_value", {"entity_id": "number.home_heat_hot_water_target", "value": 63}, blocking=True
+        )  # above the 62 maximum
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            "number", "set_value", {"entity_id": "number.home_heat_hot_water_top_up_below", "value": 56}, blocking=True
+        )  # above top-up until 55
+    assert ctrl.hot_water.cfg["target"] == 58.0
