@@ -135,6 +135,10 @@
       font-size: 13px;
     }
 
+    .hw-status { font-size: 14px; line-height: 1.5; color: var(--muted, #9aa4b2); }
+    .hw-status strong { color: var(--text, #e6edf3); }
+    .hw-status .hw-on { color: #ff9f43; }
+
     /* −/+ stepper for temperature inputs */
     .num-stepper {
       display: flex;
@@ -1340,6 +1344,36 @@
             <button id="addCircuitBtn" class="ghost" data-i18n="add_circuit" style="width:100%;">
               Heizkreis hinzufügen
             </button>
+          </div>
+        </section>
+        <section class="card" id="hotWaterCard">
+          <h2>Hot water</h2>
+          <div id="hwStatus" class="hw-status">Loading …</div>
+          <button id="hwBoostBtn" type="button" class="success" style="width:100%;margin:10px 0 4px;">
+            Boost hot water
+          </button>
+          <div class="settings-group">
+            <div class="settings-group-label">During the schedule</div>
+            <div class="toggle"><div class="toggle-text"><strong>Heat up to</strong><span>Stops heating at this temperature.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_hot_water_target" type="number" min="40" max="65" step="0.5" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Start again below</strong><span>Heats again if the tank cools below this.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_hot_water_restart_below" type="number" min="35" max="64" step="0.5" /></div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-group-label">Outside the schedule</div>
+            <div class="toggle"><div class="toggle-text"><strong>Top up below</strong><span>Heats if the tank drops below this.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_hot_water_top_up_below" type="number" min="30" max="60" step="0.5" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Top up until</strong><span>A top-up stops here.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_hot_water_top_up_until" type="number" min="35" max="65" step="0.5" /></div>
+          </div>
+          <div class="settings-group">
+            <div class="settings-group-label">Boost and safety</div>
+            <div class="toggle"><div class="toggle-text"><strong>Boost to</strong><span>The Boost button heats to this.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_hot_water_boost_target" type="number" min="40" max="65" step="0.5" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Boost time (min)</strong><span>Longest a boost can run.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_hot_water_boost_time" type="number" min="15" max="180" step="15" /></div>
+            <div class="toggle"><div class="toggle-text"><strong>Maximum</strong><span>Never heats at or above this.</span></div>
+              <input class="toggle-temp hw-input" data-hw-entity="number.home_heat_hot_water_maximum" type="number" min="45" max="70" step="0.5" /></div>
           </div>
         </section>
       </div>

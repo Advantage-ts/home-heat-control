@@ -816,6 +816,10 @@ function normalizeRoom(roomId, room) {
     switch_min_on: Math.max(0, normalizeNumber(room?.switch_min_on, 5)),
     switch_min_off: Math.max(0, normalizeNumber(room?.switch_min_off, 5)),
     sensor: typeof room?.sensor === "string" ? room.sensor : "",
+    extra_sensors: Array.isArray(room?.extra_sensors)
+      ? room.extra_sensors.filter((s) => typeof s === "string" && s)
+      : [],
+    sensor_mode: room?.sensor_mode === "coldest" ? "coldest" : "average",
     window_sensor:
       typeof room?.window_sensor === "string" ? room.window_sensor : "",
     window_sensors: (() => {
@@ -2610,6 +2614,8 @@ function collectFormState() {
       switch_min_on: node.querySelector(".room-switch-min-on")?.value || undefined,
       switch_min_off: node.querySelector(".room-switch-min-off")?.value || undefined,
       sensor: getEntityPickerValue(`room_${roomId}_sensor_picker`) || "",
+      extra_sensors: existingRoom.extra_sensors || [],
+      sensor_mode: existingRoom.sensor_mode || "average",
       window_sensors: [...node.querySelectorAll(".room-window-sensor-row")].map(
         (row) => getEntityPickerValue(row.dataset.wsPickerId)
       ).filter(Boolean),
@@ -2772,8 +2778,15 @@ async function saveConfig() {
 
     const cfg = collectFormState();
 
+    // Settings the panel does not edit are left out, so a panel that was
+    // opened earlier cannot put back old values over newer ones.
+    const payload = structuredClone(cfg);
+    for (const key of SERVER_OWNED_KEYS) {
+      delete payload[key];
+    }
+
     await callService(DOMAIN, "update_config", {
-      config: cfg,
+      config: payload,
     });
 
     state.config = cfg;
@@ -2829,6 +2842,111 @@ async function refreshAll() {
   entityPickerState.clear();
   renderGlobalSettings();
   renderRooms();
+  renderHotWater();
+}
+
+// ─── Hot water ───────────────────────────────────────────────────────────────
+const SERVER_OWNED_KEYS = [
+  "hot_water",
+  "watch_only",
+  "max_room_target",
+  "room_boost_amount",
+  "room_boost_minutes",
+  "boiler_max_run_minutes",
+  "boiler_rest_minutes",
+  "boiler_min_on_minutes",
+  "boiler_min_off_minutes",
+  "room_states",
+];
+const HW_DEMAND = "binary_sensor.home_heat_hot_water_demand";
+const HW_TANK = "sensor.hot_water_tank_temperature";
+
+function isHotWaterEntity(entityId) {
+  return (
+    entityId === HW_DEMAND ||
+    entityId === HW_TANK ||
+    entityId.startsWith("number.home_heat_hot_water_")
+  );
+}
+
+function renderHotWater() {
+  const card = document.getElementById("hotWaterCard");
+  if (!card) return;
+  const demand = findState(HW_DEMAND);
+  const statusEl = document.getElementById("hwStatus");
+  const boostBtn = document.getElementById("hwBoostBtn");
+  if (!demand) {
+    statusEl.textContent = "Hot water control is not available.";
+    boostBtn.disabled = true;
+    return;
+  }
+  const a = demand.attributes || {};
+  const tankRaw = a.tank_temperature ?? findState(HW_TANK)?.state;
+  const tank = Number(tankRaw);
+  const tankText = Number.isFinite(tank) ? `${tank.toFixed(1)} °C` : "no reading";
+  const heating = demand.state === "on";
+  const left = Number(a.boost_minutes_left) || 0;
+  statusEl.innerHTML =
+    `<strong>Tank ${escapeHtml(tankText)}</strong> · ` +
+    (heating ? '<span class="hw-on">Heating</span>' : "Not heating") +
+    ` <span>(${escapeHtml(a.reason || "")})</span>` +
+    (a.enabled === false ? "<br>Hot water control is switched off." : "") +
+    (a.watch_only ? "<br>Watch only: decisions are not being sent." : "");
+  boostBtn.disabled = a.enabled === false;
+  boostBtn.textContent = left > 0 ? `Cancel boost (${left} min left)` : "Boost hot water";
+  boostBtn.dataset.boosting = left > 0 ? "1" : "";
+
+  card.querySelectorAll(".hw-input").forEach((input) => {
+    if (document.activeElement === input || input.dataset.pending === "1") return;
+    const st = findState(input.dataset.hwEntity);
+    if (st && st.state !== "unavailable" && st.state !== "unknown") {
+      input.value = String(Number(Number(st.state).toFixed(1)));
+    }
+  });
+}
+
+async function setHotWaterValue(input) {
+  const entityId = input.dataset.hwEntity;
+  const value = Number(input.value);
+  if (!Number.isFinite(value)) return;
+  input.dataset.pending = "1";
+  try {
+    await callService("number", "set_value", { entity_id: entityId, value });
+    setStatus("Hot water setting saved.", "ok");
+  } catch (error) {
+    setStatus(`Hot water setting not saved: ${error.message}`, "err");
+  } finally {
+    input.dataset.pending = "";
+    renderHotWater();
+  }
+}
+
+function bindHotWater() {
+  const card = document.getElementById("hotWaterCard");
+  if (!card) return;
+  card.querySelectorAll(".hw-input").forEach((input) => {
+    let timer = null;
+    // Wait for a pause so several −/+ presses send one change.
+    input.addEventListener("change", () => {
+      input.dataset.pending = "1";
+      clearTimeout(timer);
+      timer = setTimeout(() => setHotWaterValue(input), 700);
+    });
+  });
+  document.getElementById("hwBoostBtn").addEventListener("click", async (event) => {
+    const btn = event.currentTarget;
+    try {
+      if (btn.dataset.boosting) {
+        await callService(DOMAIN, "hot_water_cancel_boost", {});
+        setStatus("Hot water boost cancelled.", "ok");
+      } else {
+        await callService(DOMAIN, "hot_water_boost", {});
+        setStatus("Hot water boost started.", "ok");
+      }
+    } catch (error) {
+      setStatus(`Hot water boost failed: ${error.message}`, "err");
+    }
+  });
 }
 
 function getDayLabel(day) {
@@ -3281,6 +3399,11 @@ async function setupLiveUpdates() {
 
       updateStateInMemory(entity);
 
+      if (isHotWaterEntity(entity.entity_id)) {
+        renderHotWater();
+        return;
+      }
+
       if (entity.entity_id === CONFIG_ENTITY_ID) {
         const incoming = normalizeConfig(entity.attributes || {});
 
@@ -3320,7 +3443,7 @@ async function setupLiveUpdates() {
 }
 
 // ─── −/+ stepper for temperature inputs ──────────────────────────────────────
-const STEPPER_SELECTOR = 'input[type="number"][step="0.5"]';
+const STEPPER_SELECTOR = 'input[type="number"][step="0.5"], input.hw-input';
 
 function enhanceNumberStepper(input) {
   if (input.closest(".num-stepper")) return;
@@ -3386,6 +3509,7 @@ async function init() {
   observeNumberSteppers();
   applyTranslations();
   bindEvents();
+  bindHotWater();
   enableEditTracking();
   renderVersion();
   setButtonsDisabled(true);
