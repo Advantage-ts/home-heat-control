@@ -64,7 +64,7 @@ Each room's `control_profile` sets how its radiator valves are driven.
 | --- | --- |
 | `standard` | The room target plus `thermostat_offset`. The valve then regulates on its own thermometer. |
 | `self_regulating` | The room target, sent less often, for valves behind a slow hub. |
-| `on_off` | Its maximum setpoint (normally 30 °C) while the room heats or holds residual heat, its minimum (normally 5 °C) the rest of the time. |
+| `on_off` | 30 °C (or the valve's maximum if lower) while the room heats or holds residual heat, its minimum (normally 5 °C) the rest of the time. |
 
 Use `on_off` when the room has its own thermometer. A valve thermometer sits
 next to a hot radiator and reads several degrees above the room, so with
@@ -72,7 +72,8 @@ next to a hot radiator and reads several degrees above the room, so with
 calling. With `on_off` only the room sensor decides and the valve is a tap.
 `thermostat_offset` is ignored. A room with no sensor keeps the standard
 behaviour. If a valve shows the wrong setpoint for 5 minutes (a lost command or
-a Zigbee rejoin) the setpoint is sent again.
+a Zigbee rejoin) the setpoint is sent again. A valve that clamps its minimum
+(antifrost often holds 8 °C) still counts as closed and is left alone.
 
 ```
 home_heat_control.update_room

@@ -625,3 +625,39 @@ async def test_on_off_resends_drifted_setpoint(hass, calls, freezer):
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert len(valve_setpoints(calls)) == sent + 1
+
+
+async def test_on_off_caps_open_at_30(hass, calls):
+    set_world(hass, millie=19.0)
+    hass.states.async_set(
+        "climate.millie_radiator", "auto",
+        {"current_temperature": 18.0, "temperature": 5.0, "min_temp": 5.0, "max_temp": 35.0, "target_temp_step": 0.5},
+    )
+    await setup(hass, on_off_config())
+    assert valve_setpoints(calls)[-1] == 30.0
+
+
+async def test_on_off_clamped_close_is_not_resent(hass, calls, freezer):
+    """Antifrost holds the valve at 8 when told 5. It is still shut, so no resend."""
+    set_world(hass, millie=23.0)
+    await setup(hass, on_off_config())
+    assert valve_setpoints(calls)[-1] == 5.0
+    sent = len(valve_setpoints(calls))
+    hass.states.async_set(
+        "climate.millie_radiator", "auto",
+        {"current_temperature": 23.5, "temperature": 8.0, "min_temp": 5.0, "target_temp_step": 0.5},
+    )
+    freezer.tick(timedelta(minutes=10))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert len(valve_setpoints(calls)) == sent
+    # A close that left the valve able to open is resent.
+    hass.states.async_set(
+        "climate.millie_radiator", "auto",
+        {"current_temperature": 18.0, "temperature": 21.0, "min_temp": 5.0, "target_temp_step": 0.5},
+    )
+    freezer.tick(timedelta(minutes=10))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert valve_setpoints(calls)[-1] == 5.0
+    assert len(valve_setpoints(calls)) == sent + 1

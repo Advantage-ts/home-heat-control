@@ -119,6 +119,7 @@ from .const import (
     CONTROL_PROFILE_ON_OFF,
     CONTROL_PROFILE_SELF_REGULATING,
     CONTROL_PROFILE_STANDARD,
+    ON_OFF_OPEN_TEMP,
     ON_OFF_RESYNC_SECS,
     DEFAULT_ADAPTIVE_OVERSHOOT,
     DEFAULT_ADAPTIVE_OVERSHOOT_LONG,
@@ -1042,6 +1043,13 @@ class SmartHeatingController:
         actual = self._safe_float(state.attributes.get(ATTR_TEMPERATURE))
         if actual is None or abs(actual - desired) < 0.5:
             return
+        if desired <= self._thermostat_min_temp(entity_id) + 0.01:
+            # Asked to close. Some valves clamp the minimum (antifrost holds
+            # 8 C), which is still shut. Only resend if the setpoint it
+            # kept is high enough for the valve to open.
+            reading = self._safe_float(state.attributes.get("current_temperature"))
+            if reading is None or actual <= reading:
+                return
         last_sent = self._last_command_sent_at.get(entity_id, 0.0)
         if dt_util.now().timestamp() - last_sent < ON_OFF_RESYNC_SECS:
             return
@@ -2158,7 +2166,7 @@ class SmartHeatingController:
                     # the room heats (or dumps residual heat), shut otherwise.
                     # The valve's own thermometer never gets a say.
                     room_target = (
-                        self._thermostat_max_temp(thermostat)
+                        min(ON_OFF_OPEN_TEMP, self._thermostat_max_temp(thermostat))
                         if effective_state in (ROOM_STATE_HEATING, ROOM_STATE_RESIDUAL_HOLD)
                         else self._thermostat_min_temp(thermostat)
                     )
