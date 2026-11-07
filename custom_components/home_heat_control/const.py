@@ -85,6 +85,12 @@ CONF_ROOM_THERMOSTAT_OFFSET = "thermostat_offset"
 
 CONTROL_PROFILE_STANDARD = "standard"
 CONTROL_PROFILE_SELF_REGULATING = "self_regulating"
+# Room sensor decides, valve is a tap: fully open while the room heats,
+# fully closed otherwise. Needs a room sensor, else falls back to standard.
+CONTROL_PROFILE_ON_OFF = "on_off"
+# How long an on/off valve may sit away from its setpoint (lost command,
+# Zigbee rejoin) before the setpoint is sent again.
+ON_OFF_RESYNC_SECS = 300
 
 DEFAULT_ROOM_CONTROL_PROFILE = CONTROL_PROFILE_STANDARD
 DEFAULT_ROOM_THERMOSTAT_OFFSET = 0.0

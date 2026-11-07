@@ -123,7 +123,8 @@
     "control_profile": {
       "options": {
         "standard": "Standard thermostat",
-        "self_regulating": "Self-regulating thermostat (e.g. Homematic OCCU)"
+        "self_regulating": "Self-regulating thermostat (e.g. Homematic OCCU)",
+        "on_off": "Fully open or closed by room sensor"
       }
     },
     "main_control_type": {

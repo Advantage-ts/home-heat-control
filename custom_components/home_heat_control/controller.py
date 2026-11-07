@@ -116,8 +116,10 @@ from .const import (
     CONF_VACATION_TEMPERATURE,
     CONF_WINDOW_CLOSE_DELAY,
     CONF_WINDOW_OPEN_DELAY,
+    CONTROL_PROFILE_ON_OFF,
     CONTROL_PROFILE_SELF_REGULATING,
     CONTROL_PROFILE_STANDARD,
+    ON_OFF_RESYNC_SECS,
     DEFAULT_ADAPTIVE_OVERSHOOT,
     DEFAULT_ADAPTIVE_OVERSHOOT_LONG,
     DEFAULT_ADAPTIVE_OVERSHOOT_MEDIUM,
@@ -973,6 +975,15 @@ class SmartHeatingController:
                 return min_temp
         return 5.0
 
+    def _thermostat_max_temp(self, entity_id: str) -> float:
+        """Maximum setpoint a valve accepts, fallback 30°C."""
+        state = self.hass.states.get(entity_id)
+        if state:
+            max_temp = self._safe_float(state.attributes.get("max_temp"))
+            if max_temp is not None:
+                return max_temp
+        return 30.0
+
     def _thermostat_target_step(self, entity_id: str) -> float:
         """Schrittweite des Thermostats lesen, fallback 0.5°C."""
         state = self.hass.states.get(entity_id)
@@ -997,11 +1008,44 @@ class SmartHeatingController:
         if profile == CONTROL_PROFILE_SELF_REGULATING:
             return CONTROL_PROFILE_SELF_REGULATING
 
+        if profile == CONTROL_PROFILE_ON_OFF:
+            return CONTROL_PROFILE_ON_OFF
+
         return CONTROL_PROFILE_STANDARD
 
     def _is_self_regulating_room(self, room: dict[str, Any]) -> bool:
         """Prüfen, ob der Raum ein selbst regelndes Thermostat nutzt."""
         return self._get_room_control_profile(room) == CONTROL_PROFILE_SELF_REGULATING
+
+    def _is_on_off_room(self, room: dict[str, Any]) -> bool:
+        """On/off profile, and the room has a sensor to decide with.
+
+        Without a room sensor the valve has to regulate on its own reading,
+        so such a room keeps the standard behaviour.
+        """
+        return (
+            self._get_room_control_profile(room) == CONTROL_PROFILE_ON_OFF
+            and bool(self._room_sensor_ids(room))
+        )
+
+    def _resync_on_off_valve(self, entity_id: str, desired: float) -> None:
+        """Send an on/off valve its setpoint again if it has drifted.
+
+        A lost Zigbee command or a valve rejoining can leave it on an old
+        setpoint, and normally a setpoint is only sent when it changes.
+        Waits ON_OFF_RESYNC_SECS after the last send so a slow valve has
+        time to report back before it is asked again.
+        """
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return
+        actual = self._safe_float(state.attributes.get(ATTR_TEMPERATURE))
+        if actual is None or abs(actual - desired) < 0.5:
+            return
+        last_sent = self._last_command_sent_at.get(entity_id, 0.0)
+        if dt_util.now().timestamp() - last_sent < ON_OFF_RESYNC_SECS:
+            return
+        self._desired_targets.pop(entity_id, None)
 
     def _get_min_command_interval_for_room(self, room: dict[str, Any]) -> float:
         """Mindestabstand zwischen Befehlen je nach Raumprofil."""
@@ -2108,12 +2152,23 @@ class SmartHeatingController:
                     )
                     effective_state = ROOM_STATE_IDLE
 
+                on_off = self._is_on_off_room(room)
+                if on_off:
+                    # Room sensor decides, valve is a tap: fully open while
+                    # the room heats (or dumps residual heat), shut otherwise.
+                    # The valve's own thermometer never gets a say.
+                    room_target = (
+                        self._thermostat_max_temp(thermostat)
+                        if effective_state in (ROOM_STATE_HEATING, ROOM_STATE_RESIDUAL_HOLD)
+                        else self._thermostat_min_temp(thermostat)
+                    )
+
                 at_min_temp = (
                     room_state["pause_active"]
                     or room_id in self._room_sensor_fault
                     or minimum_closes_valve
                 )
-                if not at_min_temp and thermostat_offset != 0.0:
+                if not on_off and not at_min_temp and thermostat_offset != 0.0:
                     room_target = room_target + thermostat_offset
 
                 desired = self._round_to_step(
@@ -2139,6 +2194,8 @@ class SmartHeatingController:
                         # Befehlsflut auslöst.
                         self._set_temp_if_needed(thermostat, room_target, min_interval=min_interval)
                 else:
+                    if on_off:
+                        self._resync_on_off_valve(thermostat, desired)
                     self._set_temp_if_needed(
                         thermostat,
                         room_target,

@@ -142,6 +142,7 @@ const I18N = {
     room_control_profile: "Thermostat control profile",
     control_profile_standard: "Standard thermostat",
     control_profile_self_regulating: "Self-regulating thermostat",
+    control_profile_on_off: "Fully open or closed by room sensor",
     room_target_day: "Day target temperature (°C)",
     room_target_night: "Night target temperature (°C)",
     room_night_setback_enabled: "Night setback active",
@@ -358,6 +359,7 @@ const I18N = {
     room_control_profile: "Thermostat-Regelprofil",
     control_profile_standard: "Standard-Thermostat",
     control_profile_self_regulating: "Selbst regelndes Thermostat",
+    control_profile_on_off: "Ganz auf oder zu nach Raumsensor",
     room_target_day: "Zieltemperatur Tag (°C)",
     room_target_night: "Zieltemperatur Nacht (°C)",
     room_night_setback_enabled: "Nachtabsenkung aktiv",
@@ -472,7 +474,7 @@ function getPanelVersion() {
 
 const PANEL_VERSION = getPanelVersion();
 const HEATING_MODES = ["comfort", "balanced", "energy", "adaptive"];
-const CONTROL_PROFILES = ["standard", "self_regulating"];
+const CONTROL_PROFILES = ["standard", "self_regulating", "on_off"];
 
 const DEFAULTS = {
   enabled: true,
@@ -2126,6 +2128,9 @@ function createRoomCard(roomId, room) {
             <option value="self_regulating" ${
               room.control_profile === "self_regulating" ? "selected" : ""
             }>${escapeHtml(t("control_profile_self_regulating"))}</option>
+            <option value="on_off" ${
+              room.control_profile === "on_off" ? "selected" : ""
+            }>${escapeHtml(t("control_profile_on_off"))}</option>
           </select>
         </div>
 

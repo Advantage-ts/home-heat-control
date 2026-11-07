@@ -532,3 +532,92 @@ async def test_immersion_entities_exist(hass, calls):
               "binary_sensor.home_heat_immersion_demand"):
         assert hass.states.get(e) is not None, e
     assert hass.states.get("time.home_heat_immersion_window_start").state == "11:59:00"
+
+
+# ---------------------------------------------------------------- on/off valves
+
+def valve_setpoints(calls, entity="climate.millie_radiator"):
+    return [
+        c.data["temperature"]
+        for c in calls
+        if c.domain == "climate" and c.service == "set_temperature" and c.data.get("entity_id") == entity
+    ]
+
+
+def on_off_config(**room_extra):
+    cfg = base_config()
+    cfg["rooms"]["millie"].update({"control_profile": "on_off", "thermostat_offset": 3.0, **room_extra})
+    return cfg
+
+
+async def test_on_off_opens_fully_and_ignores_offset(hass, calls):
+    set_world(hass, millie=19.0)
+    await setup(hass, on_off_config())
+    assert valve_setpoints(calls)[-1] == 30.0
+
+
+async def test_on_off_uses_valve_max_temp(hass, calls):
+    set_world(hass, millie=19.0)
+    hass.states.async_set(
+        "climate.millie_radiator", "auto",
+        {"current_temperature": 18.0, "temperature": 5.0, "min_temp": 5.0, "max_temp": 28.0, "target_temp_step": 0.5},
+    )
+    await setup(hass, on_off_config())
+    assert valve_setpoints(calls)[-1] == 28.0
+
+
+async def test_on_off_closes_when_room_satisfied(hass, calls):
+    """The 7 Nov fault: the valve read 25.7 next to the radiator and shut
+    while the room sat at 21.5. With on/off only the room sensor decides."""
+    set_world(hass, millie=19.0)
+    ctrl = await setup(hass, on_off_config())
+    assert valve_setpoints(calls)[-1] == 30.0
+    hass.states.async_set("sensor.millie_temp", "22.5")
+    await hass.async_block_till_done()
+    assert ctrl.boiler_demand is False
+    assert valve_setpoints(calls)[-1] == 5.0
+
+
+async def test_on_off_closes_for_open_window(hass, calls, freezer):
+    set_world(hass, millie=19.0)
+    hass.states.async_set("binary_sensor.millie_window", "off")
+    ctrl = await setup(hass, on_off_config(window_sensors=["binary_sensor.millie_window"]))
+    assert valve_setpoints(calls)[-1] == 30.0
+    hass.states.async_set("binary_sensor.millie_window", "on")
+    freezer.tick(timedelta(minutes=5))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert valve_setpoints(calls)[-1] == 5.0
+
+
+async def test_on_off_without_room_sensor_keeps_standard(hass, calls):
+    set_world(hass, millie=19.0)
+    ctrl = await setup(hass, on_off_config(sensor=""))
+    room = ctrl.config["rooms"]["millie"]
+    assert ctrl._is_on_off_room(room) is False
+
+
+async def test_on_off_resends_drifted_setpoint(hass, calls, freezer):
+    """A valve that lost the command is asked again, but not straight away."""
+    set_world(hass, millie=19.0)
+    await setup(hass, on_off_config())
+    sent = len(valve_setpoints(calls))
+    # The valve still shows 5 because the mock never applies the command.
+    freezer.tick(timedelta(minutes=2))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert len(valve_setpoints(calls)) == sent
+    freezer.tick(timedelta(minutes=4))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert len(valve_setpoints(calls)) == sent + 1
+    assert valve_setpoints(calls)[-1] == 30.0
+    # Once the valve reports the right setpoint nothing more is sent.
+    hass.states.async_set(
+        "climate.millie_radiator", "auto",
+        {"current_temperature": 18.0, "temperature": 30.0, "min_temp": 5.0, "target_temp_step": 0.5},
+    )
+    freezer.tick(timedelta(minutes=10))
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    assert len(valve_setpoints(calls)) == sent + 1

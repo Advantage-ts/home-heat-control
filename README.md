@@ -56,6 +56,30 @@ Each room status sensor lists every reading under `sensor_readings`.
 For a change to one room use `home_heat_control.update_room`. `update_config`
 replaces the whole room list.
 
+## Valve control profiles
+
+Each room's `control_profile` sets how its radiator valves are driven.
+
+| Profile | What the valve gets |
+| --- | --- |
+| `standard` | The room target plus `thermostat_offset`. The valve then regulates on its own thermometer. |
+| `self_regulating` | The room target, sent less often, for valves behind a slow hub. |
+| `on_off` | Its maximum setpoint (normally 30 °C) while the room heats or holds residual heat, its minimum (normally 5 °C) the rest of the time. |
+
+Use `on_off` when the room has its own thermometer. A valve thermometer sits
+next to a hot radiator and reads several degrees above the room, so with
+`standard` the valve shuts while the room is still cold and keeps the boiler
+calling. With `on_off` only the room sensor decides and the valve is a tap.
+`thermostat_offset` is ignored. A room with no sensor keeps the standard
+behaviour. If a valve shows the wrong setpoint for 5 minutes (a lost command or
+a Zigbee rejoin) the setpoint is sent again.
+
+```
+home_heat_control.update_room
+  room_id: office
+  settings: {"control_profile": "on_off"}
+```
+
 ## Hot water
 
 Set under `hot_water` in the configuration (`update_config` service). Defaults
