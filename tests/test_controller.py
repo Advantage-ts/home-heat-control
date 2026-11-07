@@ -651,10 +651,11 @@ async def test_on_off_clamped_close_is_not_resent(hass, calls, freezer):
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert len(valve_setpoints(calls)) == sent
-    # A close that left the valve able to open is resent.
+    # A valve that restored its own setpoint (battery change) is resent,
+    # even while it reads warm next to the radiator and is shut for now.
     hass.states.async_set(
         "climate.millie_radiator", "auto",
-        {"current_temperature": 18.0, "temperature": 21.0, "min_temp": 5.0, "target_temp_step": 0.5},
+        {"current_temperature": 26.9, "temperature": 19.5, "min_temp": 5.0, "target_temp_step": 0.5},
     )
     freezer.tick(timedelta(minutes=10))
     async_fire_time_changed(hass, dt_util.utcnow())

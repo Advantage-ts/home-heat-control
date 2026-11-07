@@ -73,7 +73,8 @@ calling. With `on_off` only the room sensor decides and the valve is a tap.
 `thermostat_offset` is ignored. A room with no sensor keeps the standard
 behaviour. If a valve shows the wrong setpoint for 5 minutes (a lost command or
 a Zigbee rejoin) the setpoint is sent again. A valve that clamps its minimum
-(antifrost often holds 8 °C) still counts as closed and is left alone.
+(antifrost often holds 8 °C) still counts as closed and is left alone. A valve that comes back on its own
+setpoint after a battery change is put back.
 
 ```
 home_heat_control.update_room

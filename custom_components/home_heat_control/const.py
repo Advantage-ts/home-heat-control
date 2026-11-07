@@ -93,6 +93,9 @@ CONTROL_PROFILE_ON_OFF = "on_off"
 ON_OFF_RESYNC_SECS = 300
 # Fully open setpoint for on/off valves, capped by the valve's own max_temp.
 ON_OFF_OPEN_TEMP = 30.0
+# A closed valve may clamp its minimum (antifrost often holds 8 C). Up to this
+# far above min_temp still counts as closed and is not resent.
+ON_OFF_CLOSE_CLAMP = 3.5
 
 DEFAULT_ROOM_CONTROL_PROFILE = CONTROL_PROFILE_STANDARD
 DEFAULT_ROOM_THERMOSTAT_OFFSET = 0.0
