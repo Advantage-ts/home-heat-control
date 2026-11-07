@@ -584,7 +584,11 @@ async def test_on_off_closes_for_open_window(hass, calls, freezer):
     ctrl = await setup(hass, on_off_config(window_sensors=["binary_sensor.millie_window"]))
     assert valve_setpoints(calls)[-1] == 30.0
     hass.states.async_set("binary_sensor.millie_window", "on")
-    freezer.tick(timedelta(minutes=5))
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow())
+    await hass.async_block_till_done()
+    # Open delay is 2 minutes by default.
+    freezer.tick(timedelta(minutes=3))
     async_fire_time_changed(hass, dt_util.utcnow())
     await hass.async_block_till_done()
     assert valve_setpoints(calls)[-1] == 5.0
