@@ -94,7 +94,7 @@ def _window_sensor_selector() -> selector.EntitySelector:
     return selector.EntitySelector(
         selector.EntitySelectorConfig(
             domain="binary_sensor",
-            multiple=False,
+            multiple=True,
         )
     )
 
@@ -104,23 +104,26 @@ def _optional_default(value: Any) -> Any:
     return vol.UNDEFINED if value is None or value == "" else value
 
 
-def _room_window_sensor(room: dict[str, Any]) -> str | None:
-    """The window sensor the controller actually uses for a room."""
+def _room_window_sensors(room: dict[str, Any]) -> list[str]:
+    """The window sensors the controller actually uses for a room."""
     sensors = room.get(CONF_ROOM_WINDOW_SENSORS)
     if isinstance(sensors, list):
-        for sensor in sensors:
-            if isinstance(sensor, str) and sensor:
-                return sensor
+        return [s for s in sensors if isinstance(s, str) and s]
     legacy = room.get(CONF_ROOM_WINDOW_SENSOR)
-    return legacy if isinstance(legacy, str) and legacy else None
+    return [legacy] if isinstance(legacy, str) and legacy else []
 
 
-def _window_sensor_fields(selected: Any) -> dict[str, Any]:
-    """Store the chosen window sensor in both the legacy and list fields."""
-    sensor = selected if isinstance(selected, str) and selected else ""
+def _window_sensor_fields(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Store the chosen window sensors in both the list and legacy fields."""
+    selected = user_input.get(CONF_ROOM_WINDOW_SENSORS)
+    if selected is None:
+        selected = user_input.get(CONF_ROOM_WINDOW_SENSOR)
+    if isinstance(selected, str):
+        selected = [selected]
+    sensors = [s for s in (selected or []) if isinstance(s, str) and s]
     return {
-        CONF_ROOM_WINDOW_SENSOR: sensor,
-        CONF_ROOM_WINDOW_SENSORS: [sensor] if sensor else [],
+        CONF_ROOM_WINDOW_SENSOR: sensors[0] if sensors else "",
+        CONF_ROOM_WINDOW_SENSORS: sensors,
     }
 
 
@@ -529,7 +532,7 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                     CONF_ROOM_DAY_START: user_input.get(CONF_ROOM_DAY_START, ""),
                     CONF_ROOM_NIGHT_START: user_input.get(CONF_ROOM_NIGHT_START, ""),
                     CONF_ROOM_ENABLED: user_input.get(CONF_ROOM_ENABLED, True),
-                    **_window_sensor_fields(user_input.get(CONF_ROOM_WINDOW_SENSOR)),
+                    **_window_sensor_fields(user_input),
                     CONF_ROOM_EXTRA_THERMOSTATS: user_input.get(
                         CONF_ROOM_EXTRA_THERMOSTATS,
                         list(DEFAULT_ROOM_EXTRA_THERMOSTATS),
@@ -603,8 +606,8 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 ): bool,
                 vol.Optional("delete_room", default=False): bool,
                 vol.Optional(
-                    CONF_ROOM_WINDOW_SENSOR,
-                    default=_optional_default(_room_window_sensor(room)),
+                    CONF_ROOM_WINDOW_SENSORS,
+                    default=_room_window_sensors(room),
                 ): _window_sensor_selector(),
             }
         )
@@ -636,7 +639,7 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                 CONF_ROOM_DAY_START: user_input.get(CONF_ROOM_DAY_START, ""),
                 CONF_ROOM_NIGHT_START: user_input.get(CONF_ROOM_NIGHT_START, ""),
                 CONF_ROOM_ENABLED: user_input.get(CONF_ROOM_ENABLED, True),
-                **_window_sensor_fields(user_input.get(CONF_ROOM_WINDOW_SENSOR)),
+                **_window_sensor_fields(user_input),
                 CONF_ROOM_EXTRA_THERMOSTATS: user_input.get(
                     CONF_ROOM_EXTRA_THERMOSTATS,
                     list(DEFAULT_ROOM_EXTRA_THERMOSTATS),
@@ -681,7 +684,7 @@ class SmartdomeOptionsFlow(config_entries.OptionsFlow):
                         CONF_ROOM_AWAY_ENABLED,
                         default=DEFAULT_ROOM_AWAY_ENABLED,
                     ): bool,
-                    vol.Optional(CONF_ROOM_WINDOW_SENSOR): _window_sensor_selector(),
+                    vol.Optional(CONF_ROOM_WINDOW_SENSORS): _window_sensor_selector(),
                 }
             ),
         )
