@@ -662,3 +662,35 @@ async def test_on_off_clamped_close_is_not_resent(hass, calls, freezer):
     await hass.async_block_till_done()
     assert valve_setpoints(calls)[-1] == 5.0
     assert len(valve_setpoints(calls)) == sent + 1
+
+
+async def test_options_form_replaces_window_sensor(hass, calls):
+    """19 Nov: changing the kitchen window sensor in the form kept the old one."""
+    set_world(hass, millie=19.0)
+    hass.states.async_set("binary_sensor.old_lock_door", "on")
+    hass.states.async_set("binary_sensor.texecom_bi_fold_doors", "off")
+    cfg = base_config()
+    cfg["rooms"]["millie"]["window_sensors"] = ["binary_sensor.old_lock_door"]
+    await setup(hass, cfg)
+    entry = hass.config_entries.async_entries(DOMAIN)[0]
+
+    flow = await hass.config_entries.options.async_init(entry.entry_id)
+    flow = await hass.config_entries.options.async_configure(
+        flow["flow_id"], {"action": "rooms"}
+    )
+    flow = await hass.config_entries.options.async_configure(
+        flow["flow_id"], {"room_action": "millie"}
+    )
+    defaults = {
+        str(key): key.default() for key in flow["data_schema"].schema
+        if callable(getattr(key, "default", None))
+    }
+    assert defaults["window_sensor"] == "binary_sensor.old_lock_door"
+
+    defaults["window_sensor"] = "binary_sensor.texecom_bi_fold_doors"
+    await hass.config_entries.options.async_configure(flow["flow_id"], defaults)
+    await hass.async_block_till_done()
+
+    saved = entry.data["rooms"]["millie"]
+    assert saved["window_sensors"] == ["binary_sensor.texecom_bi_fold_doors"]
+    assert saved["window_sensor"] == "binary_sensor.texecom_bi_fold_doors"
