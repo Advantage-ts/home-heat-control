@@ -1176,14 +1176,32 @@ class SmartHeatingController:
         self._call(entity_id.split(".", 1)[0], "turn_on" if turn_on else "turn_off", {"entity_id": entity_id})
 
     def _turn_off_disabled_room_switches(self) -> None:
-        """Schalter-Aktoren deaktivierter Räume ausschalten."""
+        """Shut down the actuators of disabled rooms.
+
+        Switch actuators are turned off. Radiator valves are driven to their
+        minimum setpoint, so a room switched off while its valve was open
+        does not keep heating. A valve that an enabled room also uses is
+        left to that room.
+        """
         rooms = self.config.get(CONF_ROOMS, {})
         if not isinstance(rooms, dict):
             return
+        in_use: set[str] = set()
+        for room in self._active_rooms().values():
+            in_use.update(self._room_thermostats(room))
         for room in rooms.values():
             if isinstance(room, dict) and not room.get(CONF_ROOM_ENABLED, True):
                 for actuator in self._room_switch_actuators(room):
                     self._set_room_switch_if_needed(room, actuator, False, force=True)
+                for thermostat in self._room_thermostats(room):
+                    if thermostat in in_use:
+                        continue
+                    state = self.hass.states.get(thermostat)
+                    if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+                        continue
+                    closed = self._thermostat_min_temp(thermostat)
+                    self._resync_on_off_valve(thermostat, closed)
+                    self._set_temp_if_needed(thermostat, closed)
 
     def _set_hvac_mode_if_needed(self, entity_id: str, hvac_mode: str) -> None:
         """HVAC-Modus setzen, aber nur wenn er sich geändert hat."""

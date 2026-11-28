@@ -707,3 +707,44 @@ async def test_options_form_replaces_window_sensor(hass, calls):
         "binary_sensor.texecom_bi_fold_doors",
     ]
     assert saved["window_sensor"] == "binary_sensor.window_contact"
+
+
+# ---------------------------------------------------------------- disabled rooms
+
+def disabled_kitchen_config(valve="climate.kitchen_radiator"):
+    cfg = on_off_config()
+    cfg["rooms"]["kitchen"] = room("Kitchen", "sensor.kitchen_temp", valve, enabled=False)
+    return cfg
+
+
+async def test_disabled_room_closes_open_valve(hass, calls):
+    """28 Nov: the kitchen was switched off with its valve at 30 and stayed open."""
+    set_world(hass, millie=22.0)
+    hass.states.async_set("sensor.kitchen_temp", "18.0")
+    hass.states.async_set(
+        "climate.kitchen_radiator", "auto",
+        {"current_temperature": 21.0, "temperature": 30.0, "min_temp": 5.0, "target_temp_step": 0.5},
+    )
+    await setup(hass, disabled_kitchen_config())
+    assert valve_setpoints(calls, "climate.kitchen_radiator") == [5.0]
+
+
+async def test_disabled_room_valve_resent_if_reopened(hass, calls):
+    set_world(hass, millie=22.0)
+    hass.states.async_set(
+        "climate.kitchen_radiator", "auto",
+        {"current_temperature": 21.0, "temperature": 30.0, "min_temp": 5.0, "target_temp_step": 0.5},
+    )
+    ctrl = await setup(hass, disabled_kitchen_config())
+    assert valve_setpoints(calls, "climate.kitchen_radiator") == [5.0]
+    ctrl._last_command_sent_at["climate.kitchen_radiator"] -= 3600
+    ctrl._evaluate()
+    await hass.async_block_till_done()
+    assert valve_setpoints(calls, "climate.kitchen_radiator") == [5.0, 5.0]
+
+
+async def test_disabled_room_leaves_shared_valve_alone(hass, calls):
+    set_world(hass, millie=19.0)
+    await setup(hass, disabled_kitchen_config(valve="climate.millie_radiator"))
+    assert 5.0 not in valve_setpoints(calls)
+    assert valve_setpoints(calls)[-1] == 30.0
